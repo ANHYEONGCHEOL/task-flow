@@ -26,6 +26,10 @@ class TaskCreate(BaseModel):
     description: str = ""
 
 
+class TaskUpdate(TaskCreate):
+    """제목과 설명을 통째로 보낸다. 상태는 받지 않는다."""
+
+
 class StatusChange(BaseModel):
     status: Status  # 세 값이 아니면 422로 거부된다. (D-004)
 

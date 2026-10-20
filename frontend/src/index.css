@@ -240,3 +240,36 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.card-actions button {
+  padding: 4px 10px;
+  font-size: 14px;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-form input,
+.edit-form textarea {
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.edit-form textarea {
+  min-height: 64px;
+  resize: vertical;
+}

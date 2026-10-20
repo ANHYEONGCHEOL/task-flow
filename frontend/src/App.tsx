@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
-import { changeStatus, createTask, listTasks } from './api'
+import {
+  changeStatus,
+  createTask,
+  deleteTask,
+  listTasks,
+  updateTask,
+} from './api'
 import Board from './components/Board'
 import NewTaskForm from './components/NewTaskForm'
 import type { Status, Task } from './types'
@@ -36,6 +42,31 @@ function App() {
     }
   }
 
+  async function handleUpdate(
+    id: number,
+    input: { title: string; description: string },
+  ) {
+    try {
+      const updated = await updateTask(id, input)
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
+      setMessage('')
+    } catch (e) {
+      setMessage('카드를 저장하지 못했습니다.')
+      throw e
+    }
+  }
+
+  // 삭제는 서버가 성공한 뒤에만 목록에서 뺀다.
+  async function handleDelete(id: number) {
+    try {
+      await deleteTask(id)
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+      setMessage('')
+    } catch {
+      setMessage('카드를 삭제하지 못했습니다.')
+    }
+  }
+
   return (
     <main>
       <header className="app-header">
@@ -43,7 +74,12 @@ function App() {
       </header>
       <NewTaskForm onCreate={handleCreate} />
       {message && <p className="notice">{message}</p>}
-      <Board tasks={tasks} onChangeStatus={handleChangeStatus} />
+      <Board
+        tasks={tasks}
+        onChangeStatus={handleChangeStatus}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+      />
     </main>
   )
 }

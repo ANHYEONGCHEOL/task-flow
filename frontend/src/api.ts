@@ -11,6 +11,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`요청 실패 (${res.status})`)
   }
+  if (res.status === 204) {
+    return undefined as T
+  }
   return (await res.json()) as T
 }
 
@@ -33,4 +36,18 @@ export function changeStatus(id: number, status: Status): Promise<Task> {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   })
+}
+
+export function updateTask(
+  id: number,
+  input: { title: string; description: string },
+): Promise<Task> {
+  return request<Task>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+}
+
+export function deleteTask(id: number): Promise<void> {
+  return request<void>(`/tasks/${id}`, { method: 'DELETE' })
 }
