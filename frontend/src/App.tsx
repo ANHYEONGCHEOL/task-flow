@@ -1,26 +1,38 @@
 import { useEffect, useState } from 'react'
-
-type Connection = 'checking' | 'ok' | 'fail'
+import { createTask, listTasks } from './api'
+import Board from './components/Board'
+import NewTaskForm from './components/NewTaskForm'
+import type { Task } from './types'
 
 function App() {
-  const [connection, setConnection] = useState<Connection>('checking')
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => setConnection(res.ok ? 'ok' : 'fail'))
-      .catch(() => setConnection('fail'))
+    listTasks()
+      .then(setTasks)
+      .catch(() => setMessage('카드를 불러오지 못했습니다.'))
   }, [])
 
-  const message = {
-    checking: 'API 연결 확인 중...',
-    ok: 'API 연결됨',
-    fail: 'API에 연결할 수 없음',
-  }[connection]
+  async function handleCreate(input: { title: string; description: string }) {
+    try {
+      const created = await createTask(input)
+      setTasks((prev) => [...prev, created])
+      setMessage('')
+    } catch (e) {
+      setMessage('카드를 등록하지 못했습니다.')
+      throw e
+    }
+  }
 
   return (
     <main>
-      <h1>task-flow</h1>
-      <p>{message}</p>
+      <header className="app-header">
+        <h1>task-flow</h1>
+      </header>
+      <NewTaskForm onCreate={handleCreate} />
+      {message && <p className="notice">{message}</p>}
+      <Board tasks={tasks} />
     </main>
   )
 }
