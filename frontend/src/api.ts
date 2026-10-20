@@ -1,4 +1,4 @@
-import type { Task } from './types'
+import type { Status, Task } from './types'
 
 // 화면은 /api 로만 API를 부른다. (vite.config.ts 프록시)
 const BASE = '/api'
@@ -25,5 +25,12 @@ export function createTask(input: {
   return request<Task>('/tasks', {
     method: 'POST',
     body: JSON.stringify(input),
+  })
+}
+
+export function changeStatus(id: number, status: Status): Promise<Task> {
+  return request<Task>(`/tasks/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
   })
 }

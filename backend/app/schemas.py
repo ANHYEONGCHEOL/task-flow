@@ -26,6 +26,10 @@ class TaskCreate(BaseModel):
     description: str = ""
 
 
+class StatusChange(BaseModel):
+    status: Status  # 세 값이 아니면 422로 거부된다. (D-004)
+
+
 class Task(BaseModel):
     id: int
     title: str

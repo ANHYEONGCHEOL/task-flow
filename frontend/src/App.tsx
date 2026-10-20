@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { createTask, listTasks } from './api'
+import { changeStatus, createTask, listTasks } from './api'
 import Board from './components/Board'
 import NewTaskForm from './components/NewTaskForm'
-import type { Task } from './types'
+import type { Status, Task } from './types'
 
 function App() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -25,6 +25,17 @@ function App() {
     }
   }
 
+  // 성공한 뒤에만 화면을 바꾼다. 실패하면 변경 전 상태 그대로 둔다.
+  async function handleChangeStatus(id: number, status: Status) {
+    try {
+      const updated = await changeStatus(id, status)
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
+      setMessage('')
+    } catch {
+      setMessage('상태를 바꾸지 못했습니다.')
+    }
+  }
+
   return (
     <main>
       <header className="app-header">
@@ -32,7 +43,7 @@ function App() {
       </header>
       <NewTaskForm onCreate={handleCreate} />
       {message && <p className="notice">{message}</p>}
-      <Board tasks={tasks} />
+      <Board tasks={tasks} onChangeStatus={handleChangeStatus} />
     </main>
   )
 }

@@ -228,3 +228,15 @@ button:disabled {
   background: var(--accent-bg);
   border: 1px solid var(--accent-border);
 }
+
+.card select {
+  display: block;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}

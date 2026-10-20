@@ -1,7 +1,7 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 
 from .db import connect
-from .schemas import Status, Task, TaskCreate
+from .schemas import Status, StatusChange, Task, TaskCreate
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -24,5 +24,20 @@ def create_task(body: TaskCreate) -> Task:
         )
         row = conn.execute(
             f"SELECT {COLUMNS} FROM tasks WHERE id = ?", (cur.lastrowid,)
+        ).fetchone()
+    return Task(**row)
+
+
+# 상태를 바꾸는 유일한 경로다. 현재 상태와 관계없이 어느 값으로든 바꾼다. (D-005, D-009)
+@router.patch("/{task_id}/status")
+def change_status(task_id: int, body: StatusChange) -> Task:
+    with connect() as conn:
+        cur = conn.execute(
+            "UPDATE tasks SET status = ? WHERE id = ?", (body.status.value, task_id)
+        )
+        if cur.rowcount == 0:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "카드가 없습니다.")
+        row = conn.execute(
+            f"SELECT {COLUMNS} FROM tasks WHERE id = ?", (task_id,)
         ).fetchone()
     return Task(**row)

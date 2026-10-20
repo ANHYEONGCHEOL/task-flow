@@ -1,12 +1,13 @@
-import { STATUSES, STATUS_LABEL, type Task } from '../types'
+import { STATUSES, STATUS_LABEL, type Status, type Task } from '../types'
 import TaskCard from './TaskCard'
 
 interface Props {
   tasks: Task[]
+  onChangeStatus: (id: number, status: Status) => void
 }
 
 // 카드를 상태별 열로 나누어 보여 준다. 각 카드는 자기 상태의 열에만 나온다. (R-004)
-export default function Board({ tasks }: Props) {
+export default function Board({ tasks, onChangeStatus }: Props) {
   return (
     <div className="board">
       {STATUSES.map((status) => {
@@ -18,7 +19,7 @@ export default function Board({ tasks }: Props) {
             </h2>
             <ul>
               {column.map((t) => (
-                <TaskCard key={t.id} task={t} />
+                <TaskCard key={t.id} task={t} onChangeStatus={onChangeStatus} />
               ))}
             </ul>
           </section>
