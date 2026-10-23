@@ -1,128 +1,70 @@
-import { useEffect, useState } from 'react'
-import {
-  ApiError,
-  changeStatus,
-  createTask,
-  deleteTask,
-  listTasks,
-  updateTask,
-} from './api'
-import Board from './components/Board'
-import NewTaskForm from './components/NewTaskForm'
-import type { Status, Task } from './types'
+import { useCallback, useEffect, useState } from 'react'
+import { getMe, logoutUser } from './api'
+import AuthForm from './components/AuthForm'
+import { LOADING_TEXT, SESSION_ENDED_TEXT } from './messages'
+import TaskBoard from './TaskBoard'
+import type { User } from './types'
 
-// 화면 상태 문구는 SCREEN-SPEC.md의 사용자 지정 문구 그대로다.
-const LOADING_TEXT = '로딩중'
-const EMPTY_TEXT = '결과값을 찾아오지 못하였습니다.'
-const FAILURE_TEXT = '사용자의 권한이 없습니다'
-
-type Load = 'loading' | 'ready' | 'failed'
-
+// 로그인한 사용자가 있으면 보드를, 없으면 로그인 · 가입 화면을 보여 준다.
+// user: undefined = 확인 중, null = 로그인하지 않음
 function App() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [load, setLoad] = useState<Load>('loading')
-  const [message, setMessage] = useState('')
+  const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
-    listTasks()
-      .then((list) => {
-        setTasks(list)
-        setLoad('ready')
-      })
-      .catch(() => setLoad('failed'))
+    getMe()
+      .then(setUser)
+      .catch(() => setUser(null))
   }, [])
 
-  async function handleCreate(input: { title: string; description: string }) {
+  async function handleLogout() {
     try {
-      const created = await createTask(input)
-      setTasks((prev) => [...prev, created])
-      setMessage('')
-    } catch (e) {
-      setMessage(FAILURE_TEXT)
-      throw e
+      await logoutUser()
+    } catch {
+      // 이미 로그인이 끝난 경우에도 로그인 화면으로 간다.
     }
+    setNotice('')
+    setUser(null)
   }
 
-  // 카드가 이미 없으면(404) 목록을 다시 불러와 저장된 내용에 맞춘다. (API-SPEC 4)
-  async function resyncIfGone(e: unknown) {
-    if (e instanceof ApiError && e.status === 404) {
-      try {
-        setTasks(await listTasks())
-      } catch {
-        // 목록도 못 받으면 지금 화면을 그대로 둔다.
-      }
-    }
+  // 보드가 불러오기를 다시 하지 않도록 함수가 바뀌지 않게 둔다.
+  const handleUnauthorized = useCallback(() => {
+    setNotice(SESSION_ENDED_TEXT)
+    setUser(null)
+  }, [])
+
+  if (user === undefined) {
+    return (
+      <main>
+        <p className="screen-state">{LOADING_TEXT}</p>
+      </main>
+    )
   }
 
-  // 성공한 뒤에만 화면을 바꾼다. 실패하면 변경 전 상태 그대로 둔다.
-  async function handleChangeStatus(id: number, status: Status) {
-    try {
-      const updated = await changeStatus(id, status)
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
-      setMessage('')
-    } catch (e) {
-      setMessage(FAILURE_TEXT)
-      await resyncIfGone(e)
-    }
-  }
-
-  async function handleUpdate(
-    id: number,
-    input: { title: string; description: string },
-  ) {
-    try {
-      const updated = await updateTask(id, input)
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
-      setMessage('')
-    } catch (e) {
-      setMessage(FAILURE_TEXT)
-      await resyncIfGone(e)
-      throw e
-    }
-  }
-
-  // 삭제는 서버가 성공한 뒤에만 목록에서 뺀다.
-  async function handleDelete(id: number) {
-    try {
-      await deleteTask(id)
-      setTasks((prev) => prev.filter((t) => t.id !== id))
-      setMessage('')
-    } catch (e) {
-      setMessage(FAILURE_TEXT)
-      await resyncIfGone(e)
-    }
+  if (user === null) {
+    return (
+      <main>
+        <header className="app-header">
+          <h1>task-flow</h1>
+        </header>
+        <AuthForm
+          notice={notice}
+          onLoggedIn={(loggedIn) => {
+            setNotice('')
+            setUser(loggedIn)
+          }}
+        />
+      </main>
+    )
   }
 
   return (
-    <main>
-      <header className="app-header">
-        <h1>task-flow</h1>
-      </header>
-      <NewTaskForm onCreate={handleCreate} />
-      {message && (
-        <p className="notice" role="alert">
-          {message}
-        </p>
-      )}
-      {load === 'loading' && <p className="screen-state">{LOADING_TEXT}</p>}
-      {load === 'failed' && (
-        <p className="screen-state failure" role="alert">
-          {FAILURE_TEXT}
-        </p>
-      )}
-      {load === 'ready' && tasks.length === 0 && (
-        <p className="empty-note">{EMPTY_TEXT}</p>
-      )}
-      {/* 카드가 하나도 없어도 상태 열은 그대로 보인다. */}
-      {load === 'ready' && (
-        <Board
-          tasks={tasks}
-          onChangeStatus={handleChangeStatus}
-          onUpdate={handleUpdate}
-          onDelete={handleDelete}
-        />
-      )}
-    </main>
+    <TaskBoard
+      key={user.id}
+      user={user}
+      onLogout={handleLogout}
+      onUnauthorized={handleUnauthorized}
+    />
   )
 }
 

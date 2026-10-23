@@ -1,5 +1,11 @@
 export type Status = 'TODO' | 'IN_PROGRESS' | 'DONE'
 
+// 응답에는 id와 email만 있다. 비밀번호와 해시는 오지 않는다.
+export interface User {
+  id: number
+  email: string
+}
+
 export interface Task {
   id: number
   title: string
