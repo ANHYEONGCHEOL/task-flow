@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  ApiError,
   changeStatus,
   createTask,
   deleteTask,
@@ -42,14 +43,26 @@ function App() {
     }
   }
 
+  // 카드가 이미 없으면(404) 목록을 다시 불러와 저장된 내용에 맞춘다. (API-SPEC 4)
+  async function resyncIfGone(e: unknown) {
+    if (e instanceof ApiError && e.status === 404) {
+      try {
+        setTasks(await listTasks())
+      } catch {
+        // 목록도 못 받으면 지금 화면을 그대로 둔다.
+      }
+    }
+  }
+
   // 성공한 뒤에만 화면을 바꾼다. 실패하면 변경 전 상태 그대로 둔다.
   async function handleChangeStatus(id: number, status: Status) {
     try {
       const updated = await changeStatus(id, status)
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
       setMessage('')
-    } catch {
+    } catch (e) {
       setMessage(FAILURE_TEXT)
+      await resyncIfGone(e)
     }
   }
 
@@ -63,6 +76,7 @@ function App() {
       setMessage('')
     } catch (e) {
       setMessage(FAILURE_TEXT)
+      await resyncIfGone(e)
       throw e
     }
   }
@@ -73,8 +87,9 @@ function App() {
       await deleteTask(id)
       setTasks((prev) => prev.filter((t) => t.id !== id))
       setMessage('')
-    } catch {
+    } catch (e) {
       setMessage(FAILURE_TEXT)
+      await resyncIfGone(e)
     }
   }
 
