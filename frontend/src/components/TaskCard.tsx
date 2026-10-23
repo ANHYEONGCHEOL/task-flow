@@ -94,17 +94,25 @@ export default function TaskCard({
         {STATUS_LABEL[task.status]}
       </span>
       {/* 사용자가 고른 뒤에만 요청한다. (R-003) */}
-      <select
+      <div
+        className="status-buttons"
+        role="group"
         aria-label={`${task.title} 상태 변경`}
-        value={task.status}
-        onChange={(e) => onChangeStatus(task.id, e.target.value as Status)}
       >
         {STATUSES.map((s) => (
-          <option key={s} value={s}>
+          <button
+            key={s}
+            type="button"
+            className={s === task.status ? 'current' : undefined}
+            aria-pressed={s === task.status}
+            onClick={() => {
+              if (s !== task.status) onChangeStatus(task.id, s)
+            }}
+          >
             {STATUS_LABEL[s]}
-          </option>
+          </button>
         ))}
-      </select>
+      </div>
       <div className="card-actions">
         <button type="button" onClick={startEdit}>
           수정

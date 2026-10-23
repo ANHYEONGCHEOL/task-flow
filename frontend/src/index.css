@@ -229,16 +229,25 @@ button:disabled {
   border: 1px solid var(--accent-border);
 }
 
-.card select {
-  display: block;
+.status-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-top: 8px;
-  padding: 4px 8px;
-  font: inherit;
+}
+
+.status-buttons button {
+  padding: 4px 10px;
   font-size: 14px;
-  color: var(--text-h);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border-color: var(--border);
+}
+
+.status-buttons button.current {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  font-weight: 600;
+  cursor: default;
 }
 
 .card-actions {
