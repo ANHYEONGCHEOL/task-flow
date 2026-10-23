@@ -273,3 +273,19 @@ button:disabled {
   min-height: 64px;
   resize: vertical;
 }
+
+/* 화면 상태: 불러오는 중 · 빈 결과 · 실패 (SCREEN-SPEC) */
+.screen-state {
+  margin: 48px auto;
+  padding: 24px 32px;
+  max-width: 420px;
+  text-align: center;
+  color: var(--text-h);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.screen-state.failure {
+  color: #d93025;
+}
