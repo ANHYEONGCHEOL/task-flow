@@ -290,3 +290,10 @@ button:disabled {
 .screen-state.failure {
   color: #d93025;
 }
+
+/* 카드가 하나도 없을 때 보드 위에 보이는 안내 */
+.empty-note {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text);
+}
