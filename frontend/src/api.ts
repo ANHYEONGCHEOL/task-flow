@@ -3,13 +3,23 @@ import type { Status, Task } from './types'
 // 화면은 /api 로만 API를 부른다. (vite.config.ts 프록시)
 const BASE = '/api'
 
+// 실패한 응답의 상태 코드를 화면이 알 수 있게 담는다. (404 = 카드가 이미 없음)
+export class ApiError extends Error {
+  status: number
+
+  constructor(status: number) {
+    super(`요청 실패 (${status})`)
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json' },
   })
   if (!res.ok) {
-    throw new Error(`요청 실패 (${res.status})`)
+    throw new ApiError(res.status)
   }
   if (res.status === 204) {
     return undefined as T
