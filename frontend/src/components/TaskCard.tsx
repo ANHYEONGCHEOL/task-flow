@@ -90,30 +90,27 @@ export default function TaskCard({
     <li className="card">
       <h3>{task.title}</h3>
       {task.description && <p className="card-desc">{task.description}</p>}
-      <span className={`badge badge-${task.status}`}>
-        {STATUS_LABEL[task.status]}
-      </span>
-      {/* 사용자가 고른 뒤에만 요청한다. (R-003) */}
-      <div
-        className="status-buttons"
-        role="group"
-        aria-label={`${task.title} 상태 변경`}
-      >
-        {STATUSES.map((s) => (
-          <button
-            key={s}
-            type="button"
-            className={s === task.status ? 'current' : undefined}
-            aria-pressed={s === task.status}
-            onClick={() => {
-              if (s !== task.status) onChangeStatus(task.id, s)
-            }}
-          >
-            {STATUS_LABEL[s]}
-          </button>
-        ))}
-      </div>
       <div className="card-actions">
+        {/* 사용자가 고른 뒤에만 요청한다. (R-003) */}
+        <div
+          className="status-buttons"
+          role="group"
+          aria-label={`${task.title} 상태 변경`}
+        >
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={s === task.status ? 'current' : undefined}
+              aria-pressed={s === task.status}
+              onClick={() => {
+                if (s !== task.status) onChangeStatus(task.id, s)
+              }}
+            >
+              {STATUS_LABEL[s]}
+            </button>
+          ))}
+        </div>
         <button type="button" onClick={startEdit}>
           수정
         </button>

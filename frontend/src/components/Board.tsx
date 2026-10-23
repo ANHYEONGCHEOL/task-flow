@@ -24,9 +24,7 @@ export default function Board({
         const column = tasks.filter((t) => t.status === status)
         return (
           <section className="column" key={status} aria-label={STATUS_LABEL[status]}>
-            <h2>
-              {STATUS_LABEL[status]} <small>{column.length}</small>
-            </h2>
+            <h2>{STATUS_LABEL[status]}</h2>
             <ul>
               {column.map((t) => (
                 <TaskCard
