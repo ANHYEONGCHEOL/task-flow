@@ -1,7 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .db import init_db
+from .tasks import router as tasks_router
+
+init_db()
+
 app = FastAPI(title="task-flow API")
+app.include_router(tasks_router)
 
 app.add_middleware(
     CORSMiddleware,
