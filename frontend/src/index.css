@@ -55,7 +55,6 @@
   max-width: 100%;
   margin: 0 auto;
   text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -112,40 +111,56 @@ code {
 
 /* 보드 */
 main {
+  box-sizing: border-box;
+  width: 100%;
   text-align: left;
-  padding: 0 24px 32px;
+  max-width: 960px;
+  margin: 24px auto;
+  padding: 16px 40px 40px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
 }
 
 .app-header h1 {
-  font-size: 28px;
-  letter-spacing: -0.5px;
-  margin: 20px 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin: 20px 0 16px;
 }
 
 .new-task {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
   margin-bottom: 24px;
 }
 
-.new-task input {
-  flex: 1 1 200px;
-  padding: 8px 12px;
+.new-task input,
+.new-task textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 6px 10px;
   font: inherit;
+  font-size: 14px;
   color: var(--text-h);
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 4px;
+}
+
+.new-task textarea {
+  resize: vertical;
 }
 
 button {
-  padding: 8px 16px;
+  padding: 2px 6px;
   font: inherit;
+  font-size: 12px;
   color: var(--text-h);
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-  border-radius: 6px;
+  background: var(--code-bg);
+  border: 1px solid var(--text);
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -165,7 +180,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (max-width: 720px) {
@@ -175,18 +190,15 @@ button:disabled {
 }
 
 .column {
+  min-height: 240px;
   background: var(--code-bg);
   border-radius: 8px;
   padding: 12px;
 }
 
 .column h2 {
-  font-size: 18px;
-}
-
-.column h2 small {
-  color: var(--text);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .column ul {
@@ -219,46 +231,29 @@ button:disabled {
   margin-bottom: 8px;
 }
 
-.badge {
-  display: inline-block;
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  color: var(--text-h);
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-}
-
 .status-buttons {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 4px;
 }
 
 .status-buttons button {
-  padding: 4px 10px;
-  font-size: 14px;
   background: var(--bg);
   border-color: var(--border);
 }
 
 .status-buttons button.current {
-  background: var(--accent-bg);
-  border-color: var(--accent-border);
-  font-weight: 600;
+  background: var(--code-bg);
+  border-color: var(--text);
+  font-weight: 700;
   cursor: default;
 }
 
 .card-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   margin-top: 8px;
-}
-
-.card-actions button {
-  padding: 4px 10px;
-  font-size: 14px;
 }
 
 .edit-form {
@@ -297,4 +292,11 @@ button:disabled {
 
 .screen-state.failure {
   color: #d93025;
+}
+
+/* 카드가 하나도 없을 때 보드 위에 보이는 안내 */
+.empty-note {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text);
 }

@@ -96,9 +96,10 @@ function App() {
         </p>
       )}
       {load === 'ready' && tasks.length === 0 && (
-        <p className="screen-state">{EMPTY_TEXT}</p>
+        <p className="empty-note">{EMPTY_TEXT}</p>
       )}
-      {load === 'ready' && tasks.length > 0 && (
+      {/* 카드가 하나도 없어도 상태 열은 그대로 보인다. */}
+      {load === 'ready' && (
         <Board
           tasks={tasks}
           onChangeStatus={handleChangeStatus}

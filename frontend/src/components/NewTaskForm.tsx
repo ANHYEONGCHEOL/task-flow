@@ -35,13 +35,14 @@ export default function NewTaskForm({ onCreate }: Props) {
     <form className="new-task" onSubmit={submit}>
       <input
         aria-label="제목"
-        placeholder="제목"
+        placeholder="제목 (필수)"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
       />
-      <input
+      <textarea
         aria-label="설명"
         placeholder="설명 (선택)"
+        rows={2}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
