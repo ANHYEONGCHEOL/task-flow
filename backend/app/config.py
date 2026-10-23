@@ -11,7 +11,8 @@ def db_path() -> Path:
 
 
 def _read_env_file(name: str) -> str | None:
-    path = BACKEND_DIR / ".env"
+    # 테스트에서는 TASKFLOW_ENV_FILE로 다른 위치를 가리킬 수 있다.
+    path = Path(os.environ.get("TASKFLOW_ENV_FILE") or BACKEND_DIR / ".env")
     if not path.is_file():
         return None
     for line in path.read_text(encoding="utf-8").splitlines():
