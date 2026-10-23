@@ -111,6 +111,8 @@ code {
 
 /* 보드 */
 main {
+  box-sizing: border-box;
+  width: 100%;
   text-align: left;
   max-width: 960px;
   margin: 24px auto;
@@ -178,7 +180,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (max-width: 720px) {
@@ -188,6 +190,7 @@ button:disabled {
 }
 
 .column {
+  min-height: 240px;
   background: var(--code-bg);
   border-radius: 8px;
   padding: 12px;
