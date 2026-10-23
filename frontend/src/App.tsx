@@ -10,14 +10,25 @@ import Board from './components/Board'
 import NewTaskForm from './components/NewTaskForm'
 import type { Status, Task } from './types'
 
+// 화면 상태 문구는 SCREEN-SPEC.md의 사용자 지정 문구 그대로다.
+const LOADING_TEXT = '로딩중'
+const EMPTY_TEXT = '결과값을 찾아오지 못하였습니다.'
+const FAILURE_TEXT = '사용자의 권한이 없습니다'
+
+type Load = 'loading' | 'ready' | 'failed'
+
 function App() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [load, setLoad] = useState<Load>('loading')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     listTasks()
-      .then(setTasks)
-      .catch(() => setMessage('카드를 불러오지 못했습니다.'))
+      .then((list) => {
+        setTasks(list)
+        setLoad('ready')
+      })
+      .catch(() => setLoad('failed'))
   }, [])
 
   async function handleCreate(input: { title: string; description: string }) {
@@ -26,7 +37,7 @@ function App() {
       setTasks((prev) => [...prev, created])
       setMessage('')
     } catch (e) {
-      setMessage('카드를 등록하지 못했습니다.')
+      setMessage(FAILURE_TEXT)
       throw e
     }
   }
@@ -38,7 +49,7 @@ function App() {
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
       setMessage('')
     } catch {
-      setMessage('상태를 바꾸지 못했습니다.')
+      setMessage(FAILURE_TEXT)
     }
   }
 
@@ -51,7 +62,7 @@ function App() {
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
       setMessage('')
     } catch (e) {
-      setMessage('카드를 저장하지 못했습니다.')
+      setMessage(FAILURE_TEXT)
       throw e
     }
   }
@@ -63,7 +74,7 @@ function App() {
       setTasks((prev) => prev.filter((t) => t.id !== id))
       setMessage('')
     } catch {
-      setMessage('카드를 삭제하지 못했습니다.')
+      setMessage(FAILURE_TEXT)
     }
   }
 
@@ -73,13 +84,28 @@ function App() {
         <h1>task-flow</h1>
       </header>
       <NewTaskForm onCreate={handleCreate} />
-      {message && <p className="notice">{message}</p>}
-      <Board
-        tasks={tasks}
-        onChangeStatus={handleChangeStatus}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-      />
+      {message && (
+        <p className="notice" role="alert">
+          {message}
+        </p>
+      )}
+      {load === 'loading' && <p className="screen-state">{LOADING_TEXT}</p>}
+      {load === 'failed' && (
+        <p className="screen-state failure" role="alert">
+          {FAILURE_TEXT}
+        </p>
+      )}
+      {load === 'ready' && tasks.length === 0 && (
+        <p className="screen-state">{EMPTY_TEXT}</p>
+      )}
+      {load === 'ready' && tasks.length > 0 && (
+        <Board
+          tasks={tasks}
+          onChangeStatus={handleChangeStatus}
+          onUpdate={handleUpdate}
+          onDelete={handleDelete}
+        />
+      )}
     </main>
   )
 }
