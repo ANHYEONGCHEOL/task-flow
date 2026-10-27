@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import {
+  PRIORITIES,
+  PRIORITY_LABEL,
   STATUSES,
   STATUS_LABEL,
   isTitleEmpty,
+  type Priority,
   type Status,
   type Task,
+  type TaskInput,
 } from '../types'
 
 interface Props {
   task: Task
   onChangeStatus: (id: number, status: Status) => void
-  onUpdate: (
-    id: number,
-    input: { title: string; description: string },
-  ) => Promise<void>
+  onUpdate: (id: number, input: TaskInput) => Promise<void>
   onDelete: (id: number) => void
 }
 
@@ -26,11 +27,15 @@ export default function TaskCard({
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description)
+  const [priority, setPriority] = useState<Priority>(task.priority)
+  const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [error, setError] = useState('')
 
   function startEdit() {
     setTitle(task.title)
     setDescription(task.description)
+    setPriority(task.priority)
+    setDueDate(task.due_date ?? '')
     setError('')
     setEditing(true)
   }
@@ -42,7 +47,13 @@ export default function TaskCard({
       return
     }
     try {
-      await onUpdate(task.id, { title, description })
+      // 마감일을 비우면 null을 보내 지운다. (API-SPEC-CHANGE.md 7.3)
+      await onUpdate(task.id, {
+        title,
+        description,
+        priority,
+        due_date: dueDate || null,
+      })
       setEditing(false)
     } catch {
       // 실패하면 편집 중인 내용을 그대로 둔다.
@@ -70,6 +81,36 @@ export default function TaskCard({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+          <div className="field-row">
+            <label>
+              우선순위
+              <select
+                aria-label="우선순위"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as Priority)}
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {PRIORITY_LABEL[p]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              마감일
+              <input
+                type="date"
+                aria-label="마감일"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </label>
+            {dueDate && (
+              <button type="button" onClick={() => setDueDate('')}>
+                마감일 지우기
+              </button>
+            )}
+          </div>
           {error && (
             <p className="field-error" role="alert">
               {error}
@@ -87,9 +128,17 @@ export default function TaskCard({
   }
 
   return (
-    <li className="card">
+    <li className={task.is_overdue ? 'card overdue' : 'card'}>
       <h3>{task.title}</h3>
       {task.description && <p className="card-desc">{task.description}</p>}
+      <p className="card-meta">
+        <span className={`priority priority-${task.priority.toLowerCase()}`}>
+          우선순위 {PRIORITY_LABEL[task.priority]}
+        </span>
+        {task.due_date && <span>마감 {task.due_date}</span>}
+        {/* 색만으로 구분하지 않도록 글자도 함께 보인다. (N-08) 상태는 바꾸지 않는다. (BR-05) */}
+        {task.is_overdue && <span className="overdue-badge">기한 초과</span>}
+      </p>
       <div className="card-actions">
         {/* 사용자가 고른 뒤에만 요청한다. (R-003) */}
         <div
