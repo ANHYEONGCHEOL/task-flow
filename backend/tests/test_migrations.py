@@ -79,7 +79,7 @@ class MigrationTest(unittest.TestCase):
         self.assertEqual([(u[1], u[2]) for u in users], [("migrated@test.com", None)])
         owners = {row[0] for row in self.query("SELECT owner_id FROM tasks")}
         self.assertEqual(owners, {users[0][0]})
-        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0004",)])
+        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0005",)])
         # 지운 번호 뒤에서 이어서 번호가 붙는다.
         self.assertEqual(self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"), seq_before)
 
@@ -136,8 +136,43 @@ class MigrationTest(unittest.TestCase):
         self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
         result = alembic(self.db, "downgrade", "-1")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0004",)])
+        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0005",)])
         self.assertEqual(self.query("SELECT COUNT(*) FROM tasks"), [(3,)])
+
+    def test_이전하면_기존_Task는_NORMAL이고_마감일이_없다(self):
+        make_old_db(self.db)
+        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
+        self.assertEqual(
+            self.query("SELECT priority, due_date FROM tasks ORDER BY id"),
+            [("NORMAL", None)] * 3,
+        )
+
+    def test_priority는_세_값만_저장소가_받고_due_date는_비울_수_있다(self):
+        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
+        conn = sqlite3.connect(self.db)
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("INSERT INTO users (email, password_hash) VALUES ('a@test.com', 'x')")
+        uid = conn.execute("SELECT id FROM users WHERE email = 'a@test.com'").fetchone()[0]
+        conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('기본', ?)", (uid,))
+        self.assertEqual(conn.execute("SELECT priority, due_date FROM tasks").fetchall(), [("NORMAL", None)])
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', ?, 'URGENT')", (uid,))
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', ?, NULL)", (uid,))
+        conn.close()
+
+    def test_새_리비전도_owner_id_제약과_번호_이어가기를_유지한다(self):
+        make_old_db(self.db)
+        seq_before = self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'")
+        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
+        self.assertEqual(self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"), seq_before)
+        conn = sqlite3.connect(self.db)
+        conn.execute("PRAGMA foreign_keys = ON")
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', NULL)")
+        with self.assertRaises(sqlite3.IntegrityError):
+            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', 999)")
+        conn.close()
 
 
 if __name__ == "__main__":

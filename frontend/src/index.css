@@ -250,6 +250,62 @@ button:disabled {
   margin-bottom: 8px;
 }
 
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  font-size: 14px;
+}
+
+.field-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-row select,
+.field-row input[type='date'] {
+  width: auto;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* 우선순위 · 마감일 · 기한 초과 표시 (R-009~R-011) */
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.priority-high {
+  color: #d93025;
+  font-weight: 700;
+}
+
+.priority-low {
+  opacity: 0.8;
+}
+
+.card.overdue {
+  border-color: #d93025;
+}
+
+.overdue-badge {
+  color: #fff;
+  background: #d93025;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-weight: 700;
+}
+
 .status-buttons {
   display: flex;
   gap: 4px;

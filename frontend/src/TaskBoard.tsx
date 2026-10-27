@@ -10,7 +10,7 @@ import {
 import Board from './components/Board'
 import NewTaskForm from './components/NewTaskForm'
 import { EMPTY_TEXT, FAILURE_TEXT, LOADING_TEXT } from './messages'
-import type { Status, Task, User } from './types'
+import type { Status, Task, TaskInput, User } from './types'
 
 type Load = 'loading' | 'ready' | 'failed'
 
@@ -40,15 +40,31 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
       })
   }, [onUnauthorized])
 
-  async function handleCreate(input: { title: string; description: string }) {
+  // 성공한 뒤 목록을 다시 받아 서버의 정렬과 기한 초과 계산에 맞춘다. (R-011, R-012)
+  // 다시 받지 못하면 성공한 응답만 지금 목록에 반영한다.
+  async function refresh(fallback: (prev: Task[]) => Task[]) {
     try {
-      const created = await createTask(input)
-      setTasks((prev) => [...prev, created])
-      setMessage('')
+      setTasks(await listTasks())
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        onUnauthorized()
+        return
+      }
+      setTasks(fallback)
+    }
+  }
+
+  async function handleCreate(input: TaskInput) {
+    let created: Task
+    try {
+      created = await createTask(input)
     } catch (e) {
       setMessage(FAILURE_TEXT)
+      await resyncIfGone(e)
       throw e
     }
+    setMessage('')
+    await refresh((prev) => [...prev, created])
   }
 
   // 로그인이 끝났으면(401) 로그인 화면으로 보내고, 카드가 이미 없으면(404)
@@ -69,29 +85,29 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
 
   // 성공한 뒤에만 화면을 바꾼다. 실패하면 변경 전 상태 그대로 둔다.
   async function handleChangeStatus(id: number, status: Status) {
+    let updated: Task
     try {
-      const updated = await changeStatus(id, status)
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
-      setMessage('')
+      updated = await changeStatus(id, status)
     } catch (e) {
       setMessage(FAILURE_TEXT)
       await resyncIfGone(e)
+      return
     }
+    setMessage('')
+    await refresh((prev) => prev.map((t) => (t.id === id ? updated : t)))
   }
 
-  async function handleUpdate(
-    id: number,
-    input: { title: string; description: string },
-  ) {
+  async function handleUpdate(id: number, input: TaskInput) {
+    let updated: Task
     try {
-      const updated = await updateTask(id, input)
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)))
-      setMessage('')
+      updated = await updateTask(id, input)
     } catch (e) {
       setMessage(FAILURE_TEXT)
       await resyncIfGone(e)
       throw e
     }
+    setMessage('')
+    await refresh((prev) => prev.map((t) => (t.id === id ? updated : t)))
   }
 
   // 삭제는 서버가 성공한 뒤에만 목록에서 뺀다.

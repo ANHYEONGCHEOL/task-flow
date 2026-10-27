@@ -67,9 +67,15 @@ class TaskProtectionTest(unittest.TestCase):
 
     def test_응답에는_소유자가_들어_있지_않다(self):
         task = self.new_task(self.alice)
-        self.assertEqual(set(task), {"id", "title", "description", "status"})
+        self.assertEqual(
+            set(task),
+            {"id", "title", "description", "status", "priority", "due_date", "is_overdue"},
+        )
         for t in self.alice.get("/tasks").json:
-            self.assertEqual(set(t), {"id", "title", "description", "status"})
+            self.assertEqual(
+                set(t),
+                {"id", "title", "description", "status", "priority", "due_date", "is_overdue"},
+            )
 
     # ---- 남의 Task는 404 ----
     def test_남의_Task를_수정_상태변경_삭제하면_404다(self):
@@ -80,7 +86,13 @@ class TaskProtectionTest(unittest.TestCase):
         self.assertEqual(self.bob.delete(f"/tasks/{tid}").status, 404)
         # 바뀐 것이 없다.
         mine = [t for t in self.alice.get("/tasks").json if t["id"] == tid][0]
-        self.assertEqual(mine, {"id": tid, "title": "앨리스의 카드", "description": "설명", "status": "TODO"})
+        self.assertEqual(
+            mine,
+            {
+                "id": tid, "title": "앨리스의 카드", "description": "설명", "status": "TODO",
+                "priority": "NORMAL", "due_date": None, "is_overdue": False,
+            },
+        )
 
     def test_남의_Task와_없는_Task는_같은_404와_같은_응답이다(self):
         task = self.new_task(self.alice)

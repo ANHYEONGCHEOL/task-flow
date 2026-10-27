@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from .config import db_path
 
 # alembic 리비전의 맨 끝 번호. DB가 이 번호까지 이전되어 있어야 앱이 시작한다.
-HEAD_REVISION = "0004"
+HEAD_REVISION = "0005"
 
 
 @contextmanager
