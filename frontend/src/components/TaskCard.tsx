@@ -10,12 +10,15 @@ import {
   type Task,
   type TaskInput,
 } from '../types'
+import { useSuggest } from '../useSuggest'
+import { SuggestButton, SuggestNote } from './SuggestParts'
 
 interface Props {
   task: Task
   onChangeStatus: (id: number, status: Status) => void
   onUpdate: (id: number, input: TaskInput) => Promise<void>
   onDelete: (id: number) => void
+  onUnauthorized: () => void
 }
 
 export default function TaskCard({
@@ -23,6 +26,7 @@ export default function TaskCard({
   onChangeStatus,
   onUpdate,
   onDelete,
+  onUnauthorized,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState(task.title)
@@ -30,6 +34,11 @@ export default function TaskCard({
   const [priority, setPriority] = useState<Priority>(task.priority)
   const [dueDate, setDueDate] = useState(task.due_date ?? '')
   const [error, setError] = useState('')
+  // 제안은 입력 칸만 채운다. 마감일 제안이 없으면 이미 적은 마감일은 그대로 둔다.
+  const suggest = useSuggest((s) => {
+    setPriority(s.priority)
+    if (s.due_date) setDueDate(s.due_date)
+  }, onUnauthorized)
 
   function startEdit() {
     setTitle(task.title)
@@ -37,7 +46,13 @@ export default function TaskCard({
     setPriority(task.priority)
     setDueDate(task.due_date ?? '')
     setError('')
+    suggest.reset()
     setEditing(true)
+  }
+
+  function cancelEdit() {
+    suggest.reset()
+    setEditing(false)
   }
 
   async function save(e: React.FormEvent) {
@@ -54,6 +69,7 @@ export default function TaskCard({
         priority,
         due_date: dueDate || null,
       })
+      suggest.reset()
       setEditing(false)
     } catch {
       // 실패하면 편집 중인 내용을 그대로 둔다.
@@ -111,6 +127,11 @@ export default function TaskCard({
               </button>
             )}
           </div>
+          <SuggestNote
+            busy={suggest.busy}
+            error={suggest.error}
+            reason={suggest.reason}
+          />
           {error && (
             <p className="field-error" role="alert">
               {error}
@@ -118,7 +139,12 @@ export default function TaskCard({
           )}
           <div className="card-actions">
             <button type="submit">저장</button>
-            <button type="button" onClick={() => setEditing(false)}>
+            <SuggestButton
+              busy={suggest.busy}
+              disabled={isTitleEmpty(title)}
+              onClick={() => suggest.run({ title, description })}
+            />
+            <button type="button" onClick={cancelEdit}>
               취소
             </button>
           </div>

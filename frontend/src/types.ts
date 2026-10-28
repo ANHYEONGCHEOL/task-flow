@@ -26,6 +26,20 @@ export interface TaskInput {
   due_date: string | null
 }
 
+// AI가 제안한 값. 저장되지 않고, 사용자가 저장 버튼을 눌러야 Task에 들어간다.
+export interface Suggestion {
+  priority: Priority
+  due_date: string | null
+  reason: string
+}
+
+// AI가 만든 할일 하나. 미리보기에만 있고, [모두 등록]을 눌러야 Task로 저장된다.
+export interface PlanItem {
+  title: string
+  priority: Priority
+  due_date: string
+}
+
 export const STATUSES: Status[] = ['TODO', 'IN_PROGRESS', 'DONE']
 
 export const PRIORITIES: Priority[] = ['HIGH', 'NORMAL', 'LOW']

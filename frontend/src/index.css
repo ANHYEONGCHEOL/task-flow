@@ -276,6 +276,62 @@ button:disabled {
   border-radius: 4px;
 }
 
+/* AI 제안 버튼은 등록 · 저장 버튼 옆에, 상태 줄은 우선순위 · 마감일 아래에 둔다 */
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.suggest-note {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.suggest-note.error {
+  color: #d93025;
+}
+
+/* AI로 할일 만들기 미리보기. 저장 전이라 카드와 다르게 점선으로 보인다. */
+.plan-preview {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--accent-border);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-preview ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.plan-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.plan-date {
+  font-family: var(--mono);
+  color: var(--text-h);
+}
+
+.plan-title {
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
 /* 우선순위 · 마감일 · 기한 초과 표시 (R-009~R-011) */
 .card-meta {
   display: flex;

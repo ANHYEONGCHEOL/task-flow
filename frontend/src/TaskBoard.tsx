@@ -3,6 +3,7 @@ import {
   ApiError,
   changeStatus,
   createTask,
+  createTasksBulk,
   deleteTask,
   listTasks,
   updateTask,
@@ -65,6 +66,20 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
     }
     setMessage('')
     await refresh((prev) => [...prev, created])
+  }
+
+  // 미리본 할일을 한꺼번에 저장한다. 서버가 전부 저장하거나 하나도 저장하지 않는다.
+  async function handleCreateMany(inputs: TaskInput[]) {
+    let created: Task[]
+    try {
+      created = await createTasksBulk(inputs)
+    } catch (e) {
+      setMessage(FAILURE_TEXT)
+      await resyncIfGone(e)
+      throw e
+    }
+    setMessage('')
+    await refresh((prev) => [...prev, ...created])
   }
 
   // 로그인이 끝났으면(401) 로그인 화면으로 보내고, 카드가 이미 없으면(404)
@@ -133,7 +148,11 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
           </button>
         </div>
       </header>
-      <NewTaskForm onCreate={handleCreate} />
+      <NewTaskForm
+        onCreate={handleCreate}
+        onCreateMany={handleCreateMany}
+        onUnauthorized={onUnauthorized}
+      />
       {message && (
         <p className="notice" role="alert">
           {message}
@@ -155,6 +174,7 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
           onChangeStatus={handleChangeStatus}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+          onUnauthorized={onUnauthorized}
         />
       )}
     </main>

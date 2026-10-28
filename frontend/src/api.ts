@@ -1,4 +1,11 @@
-import type { Status, Task, TaskInput, User } from './types'
+import type {
+  PlanItem,
+  Status,
+  Suggestion,
+  Task,
+  TaskInput,
+  User,
+} from './types'
 
 // 화면은 /api 로만 API를 부른다. (vite.config.ts 프록시)
 const BASE = '/api'
@@ -49,6 +56,38 @@ export function updateTask(id: number, input: TaskInput): Promise<Task> {
   return request<Task>(`/tasks/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
+  })
+}
+
+// 제안만 받는다. 서버는 DB를 바꾸지 않는다.
+export function suggestTask(input: {
+  title: string
+  description: string
+}): Promise<Suggestion> {
+  return request<Suggestion>('/tasks/suggest', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+// 주제 하나를 할일 5개로 나눈 미리보기만 받는다. 서버는 DB를 바꾸지 않는다.
+export async function planTasks(input: {
+  title: string
+  description: string
+  due_date: string
+}): Promise<PlanItem[]> {
+  const plan = await request<{ items: PlanItem[] }>('/tasks/plan', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return plan.items
+}
+
+// 미리본 할일을 한꺼번에 저장한다. 서버가 전부 저장하거나 하나도 저장하지 않는다.
+export function createTasksBulk(items: TaskInput[]): Promise<Task[]> {
+  return request<Task[]>('/tasks/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ items }),
   })
 }
 

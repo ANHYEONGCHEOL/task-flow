@@ -25,7 +25,7 @@ def _free_port() -> int:
 class TestServer:
     """alembic으로 이전한 테스트용 DB로 API를 띄운다."""
 
-    def __init__(self, secret: str | None = TEST_SECRET):
+    def __init__(self, secret: str | None = TEST_SECRET, extra_env: dict | None = None):
         self.tmp = tempfile.TemporaryDirectory()
         self.db = Path(self.tmp.name) / "test.db"
         self.env = {
@@ -33,6 +33,7 @@ class TestServer:
             "TASKFLOW_DB": str(self.db),
             "PYTHONUTF8": "1",
             "SESSION_SECRET": secret or "",
+            **(extra_env or {}),
         }
         self.port = _free_port()
         self.base = f"http://127.0.0.1:{self.port}"
