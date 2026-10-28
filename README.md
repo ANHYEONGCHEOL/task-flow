@@ -17,6 +17,12 @@ API (backend 폴더에서):
 
     uv run python -m uvicorn app.main:app --port 8000
 
+### AI 제안 (선택)
+
+`POST /tasks/suggest`는 Task의 제목과 설명으로 우선순위와 마감일을 제안한다. 제안만 돌려주고 DB는 바꾸지 않는다.
+API를 켜는 터미널에 환경 변수 `ANTHROPIC_API_KEY`를 설정해야 한다. `.env` 파일은 읽지 않는다. 키 값은 Git에 넣지 않는다.
+키가 없어도 앱은 시작하고, 이 API만 503 「AI 기능 꺼짐」으로 답한다.
+
 화면 (frontend 폴더에서, Node.js 필요):
 
     npm install

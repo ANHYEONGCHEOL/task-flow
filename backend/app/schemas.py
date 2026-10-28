@@ -3,7 +3,7 @@ from datetime import date
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, model_validator
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 
 class Status(StrEnum):
@@ -52,6 +52,12 @@ class TaskCreate(BaseModel):
     description: str = ""
     priority: Priority = Priority.NORMAL  # 고르지 않으면 NORMAL이다. null은 거절한다. (BR-01)
     due_date: DueDate = None
+
+
+class TaskBulkCreate(BaseModel):
+    """미리본 할일을 한꺼번에 저장한다. 하나라도 값이 틀리면 전부 저장하지 않는다."""
+
+    items: Annotated[list[TaskCreate], Field(min_length=1, max_length=10)]
 
 
 class TaskUpdate(BaseModel):

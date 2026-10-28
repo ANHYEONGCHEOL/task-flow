@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from .auth import User, current_user
 from .db import connect
-from .schemas import Status, StatusChange, Task, TaskCreate, TaskUpdate
+from .schemas import Status, StatusChange, Task, TaskBulkCreate, TaskCreate, TaskUpdate
 
 # 모든 Task API는 로그인이 필요하다. 로그인하지 않으면 401이다.
 router = APIRouter(
@@ -70,6 +70,32 @@ def create_task(body: TaskCreate, user: User = Depends(current_user)) -> Task:
         )
         row = _get(conn, cur.lastrowid, user.id)
     return Task(**row)
+
+
+# AI 할일 만들기의 [모두 등록]. 한 트랜잭션이라 중간에 실패하면 하나도 저장되지 않는다.
+# 입력 값은 단건 등록과 같은 규칙(TaskCreate)으로 검사한다.
+@router.post("/bulk", status_code=status.HTTP_201_CREATED)
+def create_tasks_bulk(
+    body: TaskBulkCreate, user: User = Depends(current_user)
+) -> list[Task]:
+    with connect() as conn:
+        ids = [
+            conn.execute(
+                "INSERT INTO tasks (title, description, status, priority, due_date, owner_id) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    item.title,
+                    item.description,
+                    Status.TODO.value,
+                    item.priority.value,
+                    item.due_date,
+                    user.id,
+                ),
+            ).lastrowid
+            for item in body.items
+        ]
+        rows = [_get(conn, task_id, user.id) for task_id in ids]
+    return [Task(**row) for row in rows]
 
 
 # 상태를 바꾸는 유일한 경로다. 현재 상태와 관계없이 어느 값으로든 바꾼다. (D-005, D-009)
