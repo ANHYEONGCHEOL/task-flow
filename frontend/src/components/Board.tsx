@@ -12,6 +12,7 @@ interface Props {
   onChangeStatus: (id: number, status: Status) => void
   onUpdate: (id: number, input: TaskInput) => Promise<void>
   onDelete: (id: number) => void
+  onUnauthorized: () => void
 }
 
 // 카드를 상태별 열로 나누어 보여 준다. 각 카드는 자기 상태의 열에만 나온다. (R-004)
@@ -21,6 +22,7 @@ export default function Board({
   onChangeStatus,
   onUpdate,
   onDelete,
+  onUnauthorized,
 }: Props) {
   return (
     <div className="board">
@@ -37,6 +39,7 @@ export default function Board({
                   onChangeStatus={onChangeStatus}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
+                  onUnauthorized={onUnauthorized}
                 />
               ))}
             </ul>
