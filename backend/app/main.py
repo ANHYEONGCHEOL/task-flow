@@ -8,6 +8,7 @@ from .db import check_schema
 from .plan import router as plan_router
 from .suggest import router as suggest_router
 from .tasks import router as tasks_router
+from .weekplan import router as weekplan_router
 
 check_schema()
 session_secret()  # SESSION_SECRET이 비어 있으면 시작하지 않는다.
@@ -18,6 +19,7 @@ app.include_router(tasks_router)
 app.include_router(suggest_router)
 app.include_router(plan_router)
 app.include_router(briefing_router)
+app.include_router(weekplan_router)
 
 app.add_middleware(
     CORSMiddleware,
