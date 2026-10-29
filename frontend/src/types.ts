@@ -52,6 +52,17 @@ export interface Briefing {
   cheer: string
 }
 
+// AI 이번 주 계획. 날짜별 할 일은 id로만 온다. 제목은 화면이 가진 목록에서 찾는다.
+export interface WeekDay {
+  date: string // YYYY-MM-DD
+  ids: number[]
+}
+
+export interface WeekPlan {
+  days: WeekDay[]
+  note: string
+}
+
 export const STATUSES: Status[] = ['TODO', 'IN_PROGRESS', 'DONE']
 
 export const PRIORITIES: Priority[] = ['HIGH', 'NORMAL', 'LOW']

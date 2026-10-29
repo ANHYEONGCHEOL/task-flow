@@ -10,6 +10,7 @@ import {
 } from './api'
 import Board from './components/Board'
 import Briefing from './components/BriefingCard'
+import WeekPlan from './components/WeekPlanCard'
 import NewTaskForm from './components/NewTaskForm'
 import { EMPTY_TEXT, FAILURE_TEXT, LOADING_TEXT } from './messages'
 import type { Status, Task, TaskInput, User } from './types'
@@ -170,6 +171,9 @@ export default function TaskBoard({ user, onLogout, onUnauthorized }: Props) {
       )}
       {load === 'ready' && (
         <Briefing tasks={tasks} onUnauthorized={onUnauthorized} />
+      )}
+      {load === 'ready' && (
+        <WeekPlan tasks={tasks} onUnauthorized={onUnauthorized} />
       )}
       {/* 카드가 하나도 없어도 상태 열은 그대로 보인다. */}
       {load === 'ready' && (

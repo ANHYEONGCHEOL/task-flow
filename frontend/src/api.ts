@@ -6,6 +6,7 @@ import type {
   Task,
   TaskInput,
   User,
+  WeekPlan,
 } from './types'
 
 // 화면은 /api 로만 API를 부른다. (vite.config.ts 프록시)
@@ -95,6 +96,11 @@ export function createTasksBulk(items: TaskInput[]): Promise<Task[]> {
 // 오늘 먼저 할 일을 받는다. 본문은 없고, 서버는 DB를 바꾸지 않는다.
 export function getBriefing(): Promise<Briefing> {
   return request<Briefing>('/tasks/briefing', { method: 'POST' })
+}
+
+// 이번 주 7일의 계획을 받는다. 본문은 없고, 서버는 DB를 바꾸지 않는다.
+export function getWeekPlan(): Promise<WeekPlan> {
+  return request<WeekPlan>('/tasks/weekplan', { method: 'POST' })
 }
 
 export function deleteTask(id: number): Promise<void> {

@@ -28,6 +28,12 @@ export const BRIEFING_OFF_TEXT = '지금은 브리핑을 쓸 수 없습니다'
 export const BRIEFING_FAILED_TEXT = '브리핑을 받지 못했습니다'
 export const BRIEFING_EMPTY_TEXT = '오늘은 비어 있어요'
 
+// 이번 주 계획 문구 (503 = AI를 쓸 수 없음, 그 밖의 실패 = 받지 못함)
+export const WEEKPLAN_LOADING_TEXT = '나누는 중…'
+export const WEEKPLAN_OFF_TEXT = '지금은 이번 주 계획을 쓸 수 없습니다'
+export const WEEKPLAN_FAILED_TEXT = '이번 주 계획을 받지 못했습니다'
+export const WEEKPLAN_EMPTY_TEXT = '이번 주는 비어 있어요'
+
 // 로그인 · 가입 화면 문구 (문서에 정해진 문구가 없어 구현에서 정한 것이다)
 export const LOGIN_FAILED_TEXT = '이메일이나 비밀번호가 맞지 않습니다.'
 export const EMAIL_TAKEN_TEXT = '이미 쓰고 있는 이메일입니다.'
