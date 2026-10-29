@@ -464,3 +464,56 @@ button:disabled {
   display: flex;
   gap: 8px;
 }
+
+/* 오늘 브리핑. 버튼 아래에 카드 한 장이 나온다. */
+.briefing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.briefing-card {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.briefing-card h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.briefing-card ol,
+.briefing-card ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.briefing-card li {
+  overflow-wrap: anywhere;
+}
+
+.briefing-title {
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.briefing-cheer {
+  margin: 0;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
