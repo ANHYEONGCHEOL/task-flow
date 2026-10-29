@@ -40,6 +40,18 @@ export interface PlanItem {
   due_date: string
 }
 
+// AI 오늘 브리핑. 먼저 할 일 · 미뤄도 되는 일은 id로만 온다. 제목은 화면이 가진 목록에서 찾는다.
+export interface BriefingPick {
+  id: number
+  reason: string
+}
+
+export interface Briefing {
+  top3: BriefingPick[]
+  later: number[]
+  cheer: string
+}
+
 export const STATUSES: Status[] = ['TODO', 'IN_PROGRESS', 'DONE']
 
 export const PRIORITIES: Priority[] = ['HIGH', 'NORMAL', 'LOW']

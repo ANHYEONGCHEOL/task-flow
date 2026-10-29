@@ -1,4 +1,5 @@
 import type {
+  Briefing,
   PlanItem,
   Status,
   Suggestion,
@@ -89,6 +90,11 @@ export function createTasksBulk(items: TaskInput[]): Promise<Task[]> {
     method: 'POST',
     body: JSON.stringify({ items }),
   })
+}
+
+// 오늘 먼저 할 일을 받는다. 본문은 없고, 서버는 DB를 바꾸지 않는다.
+export function getBriefing(): Promise<Briefing> {
+  return request<Briefing>('/tasks/briefing', { method: 'POST' })
 }
 
 export function deleteTask(id: number): Promise<void> {
