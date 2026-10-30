@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .auth import router as auth_router
 from .briefing import router as briefing_router
+from .command import router as command_router
 from .config import session_secret
 from .db import check_schema
 from .plan import router as plan_router
@@ -18,6 +19,7 @@ app.include_router(tasks_router)
 app.include_router(suggest_router)
 app.include_router(plan_router)
 app.include_router(briefing_router)
+app.include_router(command_router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -52,6 +52,23 @@ export interface Briefing {
   cheer: string
 }
 
+// AI 한 문장으로 시키기. 제안만 오고 저장되지 않는다. 사용자가 [적용]을 눌러야 기존 API로 바뀐다.
+// add: 새 할 일(title · priority · due_date), due: id의 마감일 바꾸기, done: id를 완료로
+export type CommandKind = 'add' | 'due' | 'done'
+
+export interface CommandAction {
+  kind: CommandKind
+  id: number | null
+  title: string | null
+  priority: Priority | null
+  due_date: string | null
+}
+
+export interface Command {
+  actions: CommandAction[]
+  ask: string | null // 못 알아들었을 때 한 문장. 아니면 null
+}
+
 export const STATUSES: Status[] = ['TODO', 'IN_PROGRESS', 'DONE']
 
 export const PRIORITIES: Priority[] = ['HIGH', 'NORMAL', 'LOW']

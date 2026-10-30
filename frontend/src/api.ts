@@ -1,5 +1,6 @@
 import type {
   Briefing,
+  Command,
   PlanItem,
   Status,
   Suggestion,
@@ -95,6 +96,44 @@ export function createTasksBulk(items: TaskInput[]): Promise<Task[]> {
 // 오늘 먼저 할 일을 받는다. 본문은 없고, 서버는 DB를 바꾸지 않는다.
 export function getBriefing(): Promise<Briefing> {
   return request<Briefing>('/tasks/briefing', { method: 'POST' })
+}
+
+// 한 문장을 변경 제안으로 바꿔 받는다. 서버는 DB를 바꾸지 않는다.
+// 422는 서버가 이유를 문자열로 주므로 그대로 담는다.
+export class CommandError extends ApiError {
+  detail: string
+
+  constructor(status: number, detail: string) {
+    super(status)
+    this.detail = detail
+  }
+}
+
+export async function postCommand(text: string): Promise<Command> {
+  const res = await fetch(`${BASE}/tasks/command`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const body = await res.json()
+      if (typeof body?.detail === 'string') detail = body.detail
+    } catch {
+      // 본문을 못 읽으면 이유 없이 상태 코드만 전한다.
+    }
+    throw new CommandError(res.status, detail)
+  }
+  return (await res.json()) as Command
+}
+
+// 마감일만 바꾼다. 서버는 보낸 필드만 바꾸므로 제목 · 설명 · 우선순위는 그대로이다.
+export function changeDueDate(id: number, due_date: string): Promise<Task> {
+  return request<Task>(`/tasks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ due_date }),
+  })
 }
 
 export function deleteTask(id: number): Promise<void> {
