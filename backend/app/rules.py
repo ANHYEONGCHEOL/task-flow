@@ -68,6 +68,19 @@ def validate_due_date(due_date: object) -> str | None:
     return due_date
 
 
+MAX_COMMAND_LENGTH = 200
+
+
+def validate_command_text(text: object) -> str:
+    # 한 문장으로 시키기. 앞뒤 공백을 지운 뒤 1~200자이다. 비었거나 길면 이유를 알려 준다.
+    if not isinstance(text, str) or not text.strip():
+        raise RuleError("명령을 입력해 주세요.")
+    text = text.strip()
+    if len(text) > MAX_COMMAND_LENGTH:
+        raise RuleError(f"명령은 {MAX_COMMAND_LENGTH}자 이하여야 합니다.")
+    return text
+
+
 def today() -> date:
     # 기한 초과의 "오늘"은 서버를 실행하는 컴퓨터의 날짜이다. (#19 결정)
     return date.today()
