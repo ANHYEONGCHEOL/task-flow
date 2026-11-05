@@ -1,4 +1,5 @@
 - 상태: 작성 중
+- 참고: 저장소는 이후 PostgreSQL로 바뀌었고 배포는 Supabase · Vercel이다. 아래의 SQLite와 "배포는 범위 밖"은 초안 당시 내용이며, [DECISIONS.md](DECISIONS.md) D-020이 대체한다.
 
 # 아키텍처 (초안)
 
