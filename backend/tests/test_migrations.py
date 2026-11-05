@@ -1,31 +1,21 @@
-"""단위 1: 구조 · 이전 절차 확인.
+"""단위 1: PostgreSQL 기준 스키마 확인 (D-020).
 
-실제 DB(backend/taskflow.db)는 건드리지 않는다. 모든 확인은 임시 폴더의 테스트용 DB로 한다.
+실서비스 DB는 건드리지 않는다. TASKFLOW_TEST_DATABASE_URL의 테스트용 DB만 쓰고,
+확인할 때마다 비우고 다시 만든다.
 """
 
 import os
-import sqlite3
 import subprocess
 import sys
-import tempfile
 import unittest
-from pathlib import Path
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent
+import psycopg
 
-OLD_TASKS = """
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'TODO'
-        CHECK (status IN ('TODO', 'IN_PROGRESS', 'DONE'))
-)
-"""
+from .support import BACKEND_DIR, reset_database, test_database_url
 
 
-def alembic(db: Path, *args: str) -> subprocess.CompletedProcess:
-    env = {**os.environ, "TASKFLOW_DB": str(db), "PYTHONUTF8": "1"}
+def alembic(url: str, *args: str) -> subprocess.CompletedProcess:
+    env = {**os.environ, "DATABASE_URL": url, "PYTHONUTF8": "1"}
     return subprocess.run(
         [sys.executable, "-m", "alembic", *args],
         cwd=BACKEND_DIR,
@@ -36,143 +26,108 @@ def alembic(db: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def make_old_db(path: Path) -> None:
-    """옛 구조(owner_id 없음)의 DB. 지운 번호가 있어 AUTOINCREMENT 번호가 id보다 크다."""
-    conn = sqlite3.connect(path)
-    conn.execute(OLD_TASKS)
-    conn.executemany(
-        "INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)",
-        [("가", "설명1", "TODO"), ("나", "", "IN_PROGRESS"), ("다", "설명3", "DONE"), ("지울것", "", "TODO")],
-    )
-    conn.execute("DELETE FROM tasks WHERE title = '지울것'")
-    conn.commit()
-    conn.close()
-
-
 class MigrationTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.db = Path(self.tmp.name) / "test.db"
-
-    def tearDown(self):
-        self.tmp.cleanup()
+        self.url = test_database_url()
+        reset_database(self.url)
 
     def query(self, sql, params=()):
-        conn = sqlite3.connect(self.db)
-        try:
-            return conn.execute(sql, params).fetchall()
-        finally:
-            conn.close()
+        with psycopg.connect(self.url) as conn:
+            cur = conn.execute(sql, params)
+            return cur.fetchall() if cur.description else []
 
-    def test_옛_DB를_이전하면_Task가_그대로이고_주인은_이전용_계정이다(self):
-        make_old_db(self.db)
-        before = self.query("SELECT id, title, description, status FROM tasks ORDER BY id")
-        seq_before = self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'")
-
-        result = alembic(self.db, "upgrade", "head")
+    def upgrade(self):
+        result = alembic(self.url, "upgrade", "head")
         self.assertEqual(result.returncode, 0, result.stderr)
 
-        after = self.query("SELECT id, title, description, status FROM tasks ORDER BY id")
-        self.assertEqual(after, before)
-        self.assertEqual(len(after), 3)
-        users = self.query("SELECT id, email, password_hash FROM users")
-        self.assertEqual([(u[1], u[2]) for u in users], [("migrated@test.com", None)])
-        owners = {row[0] for row in self.query("SELECT owner_id FROM tasks")}
-        self.assertEqual(owners, {users[0][0]})
-        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0005",)])
-        # 지운 번호 뒤에서 이어서 번호가 붙는다.
-        self.assertEqual(self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"), seq_before)
+    def add_user(self, email="a@test.com") -> int:
+        return self.query(
+            "INSERT INTO users (email, password_hash) VALUES (%s, 'x') RETURNING id", (email,)
+        )[0][0]
 
-    def test_owner_id는_NOT_NULL이고_없는_사용자는_저장소가_막는다(self):
-        make_old_db(self.db)
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
-
-        conn = sqlite3.connect(self.db)
-        conn.execute("PRAGMA foreign_keys = ON")
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', NULL)")
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', 999)")
-        self.assertEqual(conn.execute("PRAGMA foreign_key_check").fetchall(), [])
-        conn.close()
-
-    def test_새_DB에서도_끝까지_이전된다(self):
-        result = alembic(self.db, "upgrade", "head")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        tables = {r[0] for r in self.query("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    def test_새_DB에서_끝까지_이전된다(self):
+        self.upgrade()
+        tables = {
+            r[0]
+            for r in self.query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+            )
+        }
         self.assertTrue({"users", "sessions", "tasks", "alembic_version"} <= tables)
+        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0001",)])
         self.assertEqual(self.query("SELECT COUNT(*) FROM tasks"), [(0,)])
+        # 새 DB에는 이전용 계정을 만들지 않는다.
+        self.assertEqual(self.query("SELECT COUNT(*) FROM users"), [(0,)])
 
-    def test_다시_실행해도_Task가_바뀌지_않는다(self):
-        make_old_db(self.db)
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
-        before = self.query("SELECT id, title, description, status, owner_id FROM tasks ORDER BY id")
-        again = alembic(self.db, "upgrade", "head")
-        self.assertEqual(again.returncode, 0, again.stderr)
-        self.assertEqual(
-            self.query("SELECT id, title, description, status, owner_id FROM tasks ORDER BY id"),
-            before,
-        )
+    def test_다시_실행해도_데이터가_바뀌지_않는다(self):
+        self.upgrade()
+        uid = self.add_user()
+        self.query("INSERT INTO tasks (title, owner_id) VALUES ('가', %s)", (uid,))
+        before = self.query("SELECT id, title, owner_id FROM tasks ORDER BY id")
+        self.upgrade()
+        self.assertEqual(self.query("SELECT id, title, owner_id FROM tasks ORDER BY id"), before)
         self.assertEqual(self.query("SELECT COUNT(*) FROM users"), [(1,)])
 
-    def test_users가_비어_있지_않으면_이전용_계정을_만들지_않고_멈추며_변경이_취소된다(self):
-        make_old_db(self.db)
-        self.assertEqual(alembic(self.db, "upgrade", "0001").returncode, 0)
-        conn = sqlite3.connect(self.db)
-        conn.execute("INSERT INTO users (email, password_hash) VALUES ('other@test.com', 'x')")
-        conn.commit()
-        conn.close()
-
-        result = alembic(self.db, "upgrade", "head")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("users가 비어 있지 않습니다", result.stderr)
-        # 0002에서 멈췄으므로 0001까지만 적용되어 있고, 사용자는 그대로다.
-        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0001",)])
-        self.assertEqual(self.query("SELECT email FROM users"), [("other@test.com",)])
-        self.assertEqual(self.query("SELECT COUNT(*) FROM tasks WHERE owner_id IS NOT NULL"), [(0,)])
-
     def test_다운그레이드는_지원하지_않는다(self):
-        make_old_db(self.db)
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
-        result = alembic(self.db, "downgrade", "-1")
+        self.upgrade()
+        result = alembic(self.url, "downgrade", "-1")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0005",)])
-        self.assertEqual(self.query("SELECT COUNT(*) FROM tasks"), [(3,)])
+        self.assertEqual(self.query("SELECT version_num FROM alembic_version"), [("0001",)])
 
-    def test_이전하면_기존_Task는_NORMAL이고_마감일이_없다(self):
-        make_old_db(self.db)
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
+    def test_owner_id는_NOT_NULL이고_없는_사용자는_저장소가_막는다(self):
+        self.upgrade()
+        with self.assertRaises(psycopg.errors.NotNullViolation):
+            self.query("INSERT INTO tasks (title, owner_id) VALUES ('x', NULL)")
+        with self.assertRaises(psycopg.errors.ForeignKeyViolation):
+            self.query("INSERT INTO tasks (title, owner_id) VALUES ('x', 999)")
+
+    def test_기본값은_TODO_NORMAL_마감일_없음이다(self):
+        self.upgrade()
+        uid = self.add_user()
+        self.query("INSERT INTO tasks (title, owner_id) VALUES ('기본', %s)", (uid,))
         self.assertEqual(
-            self.query("SELECT priority, due_date FROM tasks ORDER BY id"),
-            [("NORMAL", None)] * 3,
+            self.query("SELECT description, status, priority, due_date FROM tasks"),
+            [("", "TODO", "NORMAL", None)],
         )
 
-    def test_priority는_세_값만_저장소가_받고_due_date는_비울_수_있다(self):
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
-        conn = sqlite3.connect(self.db)
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("INSERT INTO users (email, password_hash) VALUES ('a@test.com', 'x')")
-        uid = conn.execute("SELECT id FROM users WHERE email = 'a@test.com'").fetchone()[0]
-        conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('기본', ?)", (uid,))
-        self.assertEqual(conn.execute("SELECT priority, due_date FROM tasks").fetchall(), [("NORMAL", None)])
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', ?, 'URGENT')", (uid,))
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', ?, NULL)", (uid,))
-        conn.close()
+    def test_status와_priority는_정해진_값만_저장소가_받는다(self):
+        self.upgrade()
+        uid = self.add_user()
+        with self.assertRaises(psycopg.errors.CheckViolation):
+            self.query("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', %s, 'URGENT')", (uid,))
+        with self.assertRaises(psycopg.errors.NotNullViolation):
+            self.query("INSERT INTO tasks (title, owner_id, priority) VALUES ('x', %s, NULL)", (uid,))
+        with self.assertRaises(psycopg.errors.CheckViolation):
+            self.query("INSERT INTO tasks (title, owner_id, status) VALUES ('x', %s, '없는값')", (uid,))
 
-    def test_새_리비전도_owner_id_제약과_번호_이어가기를_유지한다(self):
-        make_old_db(self.db)
-        seq_before = self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'")
-        self.assertEqual(alembic(self.db, "upgrade", "head").returncode, 0)
-        self.assertEqual(self.query("SELECT seq FROM sqlite_sequence WHERE name = 'tasks'"), seq_before)
-        conn = sqlite3.connect(self.db)
-        conn.execute("PRAGMA foreign_keys = ON")
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', NULL)")
-        with self.assertRaises(sqlite3.IntegrityError):
-            conn.execute("INSERT INTO tasks (title, owner_id) VALUES ('x', 999)")
-        conn.close()
+    def test_이메일은_중복될_수_없고_사용자를_지우면_세션도_지워진다(self):
+        self.upgrade()
+        uid = self.add_user("dup@test.com")
+        with self.assertRaises(psycopg.errors.UniqueViolation):
+            self.add_user("dup@test.com")
+        self.query(
+            "INSERT INTO sessions (id, user_id, expires_at) VALUES ('s1', %s, '2999-01-01T00:00:00+00:00')",
+            (uid,),
+        )
+        self.query("DELETE FROM users WHERE id = %s", (uid,))
+        self.assertEqual(self.query("SELECT COUNT(*) FROM sessions"), [(0,)])
+
+    def test_세_테이블_모두_RLS가_켜져_있다(self):
+        self.upgrade()
+        rows = self.query(
+            "SELECT relname, relrowsecurity FROM pg_class "
+            "WHERE relnamespace = 'public'::regnamespace AND relname IN ('users', 'sessions', 'tasks') "
+            "ORDER BY relname"
+        )
+        self.assertEqual(rows, [("sessions", True), ("tasks", True), ("users", True)])
+
+    def test_삭제한_번호는_다시_쓰지_않는다(self):
+        self.upgrade()
+        uid = self.add_user()
+        first = self.query("INSERT INTO tasks (title, owner_id) VALUES ('가', %s) RETURNING id", (uid,))[0][0]
+        self.query("DELETE FROM tasks WHERE id = %s", (first,))
+        second = self.query("INSERT INTO tasks (title, owner_id) VALUES ('나', %s) RETURNING id", (uid,))[0][0]
+        self.assertGreater(second, first)
 
 
 if __name__ == "__main__":

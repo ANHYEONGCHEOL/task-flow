@@ -2,9 +2,9 @@ import hashlib
 import hmac
 import re
 import secrets
-import sqlite3
 from datetime import UTC, datetime, timedelta
 
+import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pwdlib import PasswordHash
 from pydantic import BaseModel, field_validator
@@ -92,7 +92,7 @@ def current_user(request: Request) -> User:
         with connect() as conn:
             row = conn.execute(
                 "SELECT u.id, u.email, s.expires_at FROM sessions s "
-                "JOIN users u ON u.id = s.user_id WHERE s.id = ?",
+                "JOIN users u ON u.id = s.user_id WHERE s.id = %s",
                 (session_id,),
             ).fetchone()
         if row and datetime.fromisoformat(row["expires_at"]) > _now():
@@ -106,27 +106,27 @@ def register(body: Register) -> User:
     try:
         with connect() as conn:
             row = conn.execute(
-                "SELECT id, password_hash FROM users WHERE email = ?", (body.email,)
+                "SELECT id, password_hash FROM users WHERE email = %s", (body.email,)
             ).fetchone()
             if row is None:
                 cur = conn.execute(
-                    "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+                    "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
                     (body.email, hashed),
                 )
-                user_id = cur.lastrowid
+                user_id = cur.fetchone()["id"]
             elif body.email == MIGRATED_EMAIL and row["password_hash"] is None:
                 # 이전용 계정은 처음 가입하는 사람이 비밀번호를 정해 기존 Task와 함께 받는다. (D-018)
                 cur = conn.execute(
-                    "UPDATE users SET password_hash = ? "
-                    "WHERE id = ? AND password_hash IS NULL",
+                    "UPDATE users SET password_hash = %s "
+                    "WHERE id = %s AND password_hash IS NULL",
                     (hashed, row["id"]),
                 )
                 if cur.rowcount == 0:
-                    raise sqlite3.IntegrityError("already claimed")
+                    raise psycopg.IntegrityError("already claimed")
                 user_id = row["id"]
             else:
-                raise sqlite3.IntegrityError("duplicate email")
-    except sqlite3.IntegrityError:
+                raise psycopg.IntegrityError("duplicate email")
+    except psycopg.IntegrityError:
         raise HTTPException(status.HTTP_409_CONFLICT, "이미 쓰고 있는 이메일입니다.")
     return User(id=user_id, email=body.email)
 
@@ -136,7 +136,7 @@ def login(body: Login, response: Response) -> User:
     email = _normalize_email(body.email)
     with connect() as conn:
         row = conn.execute(
-            "SELECT id, email, password_hash FROM users WHERE email = ?", (email,)
+            "SELECT id, email, password_hash FROM users WHERE email = %s", (email,)
         ).fetchone()
     stored = row["password_hash"] if row else None
     verified = hasher.verify(body.password, stored or DUMMY_HASH)
@@ -147,9 +147,9 @@ def login(body: Login, response: Response) -> User:
     session_id = secrets.token_urlsafe(32)
     expires_at = _now() + timedelta(minutes=SESSION_MINUTES)
     with connect() as conn:
-        conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (_now().isoformat(),))
+        conn.execute("DELETE FROM sessions WHERE expires_at <= %s", (_now().isoformat(),))
         conn.execute(
-            "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+            "INSERT INTO sessions (id, user_id, expires_at) VALUES (%s, %s, %s)",
             (session_id, row["id"], expires_at.isoformat()),
         )
     response.set_cookie(
@@ -169,7 +169,7 @@ def logout(
 ) -> None:
     session_id = _session_id_from_cookie(request.cookies.get(COOKIE_NAME))
     with connect() as conn:
-        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.execute("DELETE FROM sessions WHERE id = %s", (session_id,))
     response.delete_cookie(COOKIE_NAME, path="/")
 
 
