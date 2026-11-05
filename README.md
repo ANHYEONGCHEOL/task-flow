@@ -1,17 +1,28 @@
 # task-flow
 
-혼자 쓰는 Task 관리 웹 앱. 화면 React · Vite, API FastAPI, 저장소 SQLite.
+혼자 쓰는 Task 관리 웹 앱. 화면 React · Vite, API FastAPI, 저장소 PostgreSQL(배포는 Supabase · Vercel). (D-020)
 로그인한 사람은 자기 Task만 본다. (R-008)
 
 ## 실행
 
-처음 한 번, 세션 비밀값을 만든다. `backend/.env`는 Git에 올라가지 않는다.
+PostgreSQL이 필요하다. 로컬에 개발용 DB를 하나 만들어 둔다. (테스트용 DB와는 따로 쓴다)
+
+    psql -U postgres -h localhost -c "CREATE DATABASE taskflow"
+
+처음 한 번, 세션 비밀값을 만들고 DB 주소를 적는다. `backend/.env`는 Git에 올라가지 않는다.
 
     cd backend
     cp .env.example .env
     uv run python -c "import secrets; print(secrets.token_hex(32))"
 
-출력된 긴 값을 `.env`의 `SESSION_SECRET=` 뒤에 붙여 넣고 저장한다. 값이 비어 있으면 API는 시작하지 않는다.
+출력된 긴 값을 `.env`의 `SESSION_SECRET=` 뒤에 붙여 넣고, `DATABASE_URL=` 뒤에 DB 주소를 적고 저장한다.
+
+    DATABASE_URL=postgresql://postgres:<비밀번호>@localhost:5432/taskflow
+
+값이 비어 있으면 API는 시작하지 않는다. 앱은 시작할 때 DB를 바꾸지 않으므로, 테이블은 직접 만든다.
+
+    cd backend
+    uv run alembic upgrade head
 
 API (backend 폴더에서):
 
@@ -28,34 +39,42 @@ API를 켜는 터미널에 환경 변수 `ANTHROPIC_API_KEY`를 설정해야 한
     npm install
     npm run dev
 
-## 기존 DB 이전
+## 배포 (Supabase + Vercel)
 
-로그인을 넣기 전의 DB(Task만 있고 주인이 없는 `backend/taskflow.db`)는 이전해야 쓸 수 있다.
-이전되지 않은 DB이면 API가 시작하지 않는다. 이전은 **백업한 뒤 사람이 직접** 실행한다.
-(앱은 시작할 때 DB를 바꾸지 않는다. 이전 도구는 alembic이고 절차 파일은 `backend/migrations/versions`에 있다.)
+화면과 API를 Vercel 한 곳에 올리고, DB는 Supabase를 쓴다. `api/index.py`가 진입점이고, 배포할 때 `vercel.json`의 명령으로 화면을 빌드한다.
+기존 SQLite 데이터는 옮기지 않고 새 DB로 시작한다. (D-020)
 
-1. 이전 전 수량을 적어 둔다: 전체 Task 수, 상태별 수, 표본 Task 세 개의 제목 · 설명 · 상태.
-2. API를 멈추고 DB 파일을 백업한다.
+1. Supabase 프로젝트를 만들고 앱 전용 역할을 만든다. (SQL Editor, 비밀번호는 길고 무작위로 직접 정한다)
 
-       cp backend/taskflow.db backend/before-auth-taskflow.db
+       create role tf_app with login password '<긴 무작위 비밀번호>';
+       grant usage, create on schema public to tf_app;
 
-3. 이전을 실행한다. `Running upgrade` 줄이 네 번(0001 ~ 0004) 보이면 끝까지 적용된 것이다.
+2. 테이블을 만든다. **직접 연결(포트 5432) 주소**로 한 번만 실행한다. 실DB를 바꾸는 명령이라 사람이 직접 한다.
 
        cd backend
+       $env:DATABASE_URL = "<직접 연결 주소>"
        uv run alembic upgrade head
 
-4. 같은 질문으로 수량을 다시 확인하고 이전 전과 맞춘다: 전체 Task 수 · 상태별 수 · 표본 세 개가 같고, 주인 없는 Task가 0개이고, `users`에 `migrated@test.com` 한 명만 있어야 한다.
-5. 하나라도 다르면 API를 멈추고 백업 파일로 되돌린다.
+   Supabase 대시보드 → Advisors → Security Advisor에 「RLS Disabled in Public」 경고가 없어야 한다.
+3. Vercel에 로그인하고 환경 변수를 넣는다. 앱이 쓰는 `DATABASE_URL`은 **Transaction pooler(포트 6543) 주소**다.
 
-       cp backend/before-auth-taskflow.db backend/taskflow.db
+       vercel login
+       vercel env add DATABASE_URL production
+       vercel env add SESSION_SECRET production
+       vercel env add ANTHROPIC_API_KEY production
 
-   되돌리는 명령은 늘 백업 파일로 한다. 다운그레이드는 지원하지 않는다(사용자와 Task를 잃을 수 있어서).
-6. 기존 Task는 이전용 계정 `migrated@test.com`이 갖는다. 이 계정은 비밀번호가 없어서 처음에는 로그인할 수 없다.
-   앱에서 **이 이메일로 처음 가입하는 사람**이 비밀번호를 정해 계정과 기존 Task를 받는다.
-   다른 사람이 먼저 이 이메일로 가입하면 그 사람이 기존 Task를 받으니, 이전한 직후에 가입한다.
+4. 배포하고 확인한다.
+
+       vercel deploy --prod --yes
+       curl.exe -s <운영 주소>/api/health
+
+`requirements.txt`는 `backend`의 잠금 파일에서 만든다. 패키지를 바꾸면 다시 만든다.
+
+    cd backend
+    uv export --no-hashes --no-dev --no-emit-project -o ../requirements.txt
 
 ## 테스트 (backend 폴더에서)
 
-임시 폴더의 테스트용 DB로만 확인하고 실제 DB는 건드리지 않는다.
+`backend/.env`의 `TASKFLOW_TEST_DATABASE_URL`(DB 이름이 `_test`로 끝나야 한다)의 테스트용 DB로만 확인한다. 이 DB의 테이블은 테스트할 때마다 지우고 다시 만든다. 실제 DB는 건드리지 않는다.
 
     uv run python -m unittest discover -s tests -t .
