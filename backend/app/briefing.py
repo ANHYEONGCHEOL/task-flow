@@ -117,7 +117,7 @@ def briefing(user: User = Depends(current_user)) -> Briefing:
     today = rules.today().isoformat()
     with connect() as conn:
         rows = conn.execute(
-            f"{SELECT} WHERE owner_id = ? AND status != 'DONE' {ORDER} LIMIT ?",
+            f"{SELECT} WHERE owner_id = %s AND status != 'DONE' {ORDER} LIMIT %s",
             (today, user.id, MAX_TASKS),
         ).fetchall()
 

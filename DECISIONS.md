@@ -170,4 +170,14 @@
 - 적용 범위: R-008. API-SPEC-CHANGE.md 3.2, DATA-MIGRATION-PLAN.md 3절 sessions. 두 문서가 D-025라고 부르는 결정(30분)에 "로그인한 때부터 센다"를 더한 것이 이것이다.
 - 유효 상태: 유효 (사용자가 aicampustrack2/task-flow의 D-025와 D-028로 정한 것을 옮겼다.)
 
+## D-020 저장소를 SQLite에서 PostgreSQL로 바꾼다
+
+- 결정: 저장소는 PostgreSQL(배포는 Supabase)이다. 연결 주소는 환경변수 `DATABASE_URL`에서 읽는다. 마이그레이션은 PostgreSQL 전용 기준 스키마 하나로 다시 시작하고, SQLite 파일은 더 이상 지원하지 않는다.
+- 검토한 대안:
+  - SQLite와 PostgreSQL을 둘 다 지원: 코드가 두 갈래가 되어 작업과 유지 부담이 커서 택하지 않았다.
+  - SQLite 유지: Vercel 서버리스는 파일이 남지 않아 배포할 수 없다.
+- 이유: Supabase와 Vercel로 배포하기 위해서이다. D-001의 "저장소는 SQLite"를 이 결정이 대체한다.
+- 적용 범위: 저장소 전체, 마이그레이션, 테스트.
+- 유효 상태: 유효 (사용자가 Supabase와 Vercel 배포를 정했다. 기존 SQLite 데이터는 옮기지 않고 새 DB로 시작한다.)
+
 ## 보류 목록

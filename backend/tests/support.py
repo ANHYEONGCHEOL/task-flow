@@ -3,17 +3,48 @@
 import json
 import os
 import socket
-import sqlite3
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+import psycopg
+
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TEST_SECRET = "test-secret-not-a-real-one"
+
+
+def test_database_url() -> str:
+    """테스트용 PostgreSQL 주소. 환경변수 또는 backend/.env의 TASKFLOW_TEST_DATABASE_URL.
+
+    테스트는 이 DB의 테이블을 모두 지우고 다시 만든다. 그래서 DB 이름이 _test로 끝나지
+    않으면 멈춘다. (실서비스 DB를 지우지 않기 위한 안전장치)
+    """
+    url = os.environ.get("TASKFLOW_TEST_DATABASE_URL")
+    if not url:
+        env_file = BACKEND_DIR / ".env"
+        if env_file.is_file():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                key, _, value = line.strip().partition("=")
+                if key == "TASKFLOW_TEST_DATABASE_URL":
+                    url = value.strip()
+    if not url:
+        raise RuntimeError(
+            "TASKFLOW_TEST_DATABASE_URL이 비어 있습니다. backend/.env에 테스트용 DB 주소를 넣어 주세요."
+        )
+    name = url.split("?")[0].rsplit("/", 1)[-1]
+    if not name.endswith("_test"):
+        raise RuntimeError(f"테스트용 DB 이름은 _test로 끝나야 합니다. (지금: {name})")
+    return url
+
+
+def reset_database(url: str) -> None:
+    """테스트용 DB를 빈 상태로 되돌린다."""
+    with psycopg.connect(url, autocommit=True) as conn:
+        conn.execute("DROP SCHEMA public CASCADE")
+        conn.execute("CREATE SCHEMA public")
 
 
 def _free_port() -> int:
@@ -26,11 +57,10 @@ class TestServer:
     """alembic으로 이전한 테스트용 DB로 API를 띄운다."""
 
     def __init__(self, secret: str | None = TEST_SECRET, extra_env: dict | None = None):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.db = Path(self.tmp.name) / "test.db"
+        self.db_url = test_database_url()
         self.env = {
             **os.environ,
-            "TASKFLOW_DB": str(self.db),
+            "DATABASE_URL": self.db_url,
             "PYTHONUTF8": "1",
             "SESSION_SECRET": secret or "",
             **(extra_env or {}),
@@ -40,6 +70,7 @@ class TestServer:
         self.proc: subprocess.Popen | None = None
 
     def start(self) -> None:
+        reset_database(self.db_url)
         subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "head"],
             cwd=BACKEND_DIR, env=self.env, check=True, capture_output=True,
@@ -65,16 +96,17 @@ class TestServer:
             self.proc.wait(timeout=10)
             if self.proc.stderr:
                 self.proc.stderr.close()
-        self.tmp.cleanup()
 
     def sql(self, query: str, params=()):
-        conn = sqlite3.connect(self.db)
-        try:
-            rows = conn.execute(query, params).fetchall()
-            conn.commit()
-            return rows
-        finally:
-            conn.close()
+        # 자리표시자는 %s다. SELECT가 아닌 문장은 결과 없이 빈 목록을 돌려준다.
+        with psycopg.connect(self.db_url) as conn:
+            cur = conn.execute(query, params)
+            return cur.fetchall() if cur.description else []
+
+
+    def seed_migrated_user(self) -> int:
+        """이전용 계정(D-018)을 비밀번호 없는 상태로 만든다. 새 DB에는 기본으로 없다."""
+        return self.sql("INSERT INTO users (email, password_hash) VALUES ('migrated@test.com', NULL) ON CONFLICT (email) DO UPDATE SET password_hash = NULL RETURNING id")[0][0]
 
 
 class Response:

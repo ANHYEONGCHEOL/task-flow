@@ -1,7 +1,9 @@
 """단위 2: 인증 API(가입 · 로그인 · 로그아웃 · 현재 사용자) 확인. 테스트용 DB만 쓴다."""
 
+import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from .support import Client, TestServer
 
@@ -62,7 +64,7 @@ class AuthTest(unittest.TestCase):
     def test_비밀번호는_원문이_아니라_Argon2_해시로만_저장한다(self):
         c = self.client()
         self.register(c, "a6@test.com", "my-secret-pass")
-        stored = self.server.sql("SELECT password_hash FROM users WHERE email = ?", ("a6@test.com",))[0][0]
+        stored = self.server.sql("SELECT password_hash FROM users WHERE email = %s", ("a6@test.com",))[0][0]
         self.assertTrue(stored.startswith("$argon2"), stored[:10])
         self.assertNotIn("my-secret-pass", stored)
 
@@ -128,7 +130,7 @@ class AuthTest(unittest.TestCase):
         # 로그아웃 전에 가졌던 쿠키를 다시 보내도 서버가 세션을 지워서 401이다.
         self.assertEqual(c.get("/auth/me", cookies=old_cookie).status, 401)
         session_id = old_cookie["session"].rpartition(".")[0]
-        self.assertEqual(self.server.sql("SELECT id FROM sessions WHERE id = ?", (session_id,)), [])
+        self.assertEqual(self.server.sql("SELECT id FROM sessions WHERE id = %s", (session_id,)), [])
 
     def test_로그인하지_않은_상태의_로그아웃은_401이다(self):
         self.assertEqual(self.client().post("/auth/logout").status, 401)
@@ -158,11 +160,11 @@ class AuthTest(unittest.TestCase):
         self.register(c, "d2@test.com")
         self.login(c, "d2@test.com")
         session_id = c.cookies["session"].rpartition(".")[0]
-        row = self.server.sql("SELECT expires_at FROM sessions WHERE id = ?", (session_id,))[0][0]
+        row = self.server.sql("SELECT expires_at FROM sessions WHERE id = %s", (session_id,))[0][0]
         remaining = datetime.fromisoformat(row) - datetime.now(UTC)
         self.assertTrue(timedelta(minutes=29) < remaining <= timedelta(minutes=30), remaining)
         past = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
-        self.server.sql("UPDATE sessions SET expires_at = ? WHERE id = ?", (past, session_id))
+        self.server.sql("UPDATE sessions SET expires_at = %s WHERE id = %s", (past, session_id))
         self.assertEqual(c.get("/auth/me").status, 401)
 
     def test_요청해도_세션_시간이_연장되지_않는다(self):
@@ -170,26 +172,28 @@ class AuthTest(unittest.TestCase):
         self.register(c, "d3@test.com")
         self.login(c, "d3@test.com")
         session_id = c.cookies["session"].rpartition(".")[0]
-        before = self.server.sql("SELECT expires_at FROM sessions WHERE id = ?", (session_id,))
+        before = self.server.sql("SELECT expires_at FROM sessions WHERE id = %s", (session_id,))
         c.get("/auth/me")
         c.get("/auth/me")
-        self.assertEqual(self.server.sql("SELECT expires_at FROM sessions WHERE id = ?", (session_id,)), before)
+        self.assertEqual(self.server.sql("SELECT expires_at FROM sessions WHERE id = %s", (session_id,)), before)
 
     def test_로그인할_때_만료된_세션을_지운다(self):
         c = self.client()
         self.register(c, "d4@test.com")
         self.login(c, "d4@test.com")
         stale = c.cookies["session"].rpartition(".")[0]
-        self.server.sql("UPDATE sessions SET expires_at = ? WHERE id = ?", ("2000-01-01T00:00:00+00:00", stale))
+        self.server.sql("UPDATE sessions SET expires_at = %s WHERE id = %s", ("2000-01-01T00:00:00+00:00", stale))
         self.login(self.client(), "d4@test.com")
-        self.assertEqual(self.server.sql("SELECT id FROM sessions WHERE id = ?", (stale,)), [])
+        self.assertEqual(self.server.sql("SELECT id FROM sessions WHERE id = %s", (stale,)), [])
 
     # ---- 이전용 계정 ----
     def test_이전용_계정은_가입하기_전에는_로그인할_수_없다(self):
+        self.server.seed_migrated_user()
         r = self.login(self.client(), "migrated@test.com", "anything-1234")
         self.assertEqual(r.status, 401)
 
     def test_이전용_이메일로_처음_가입하는_사람이_비밀번호를_정해_계정을_받는다(self):
+        self.server.seed_migrated_user()
         c = self.client()
         r = self.register(c, "migrated@test.com", "claimed-pass-1")
         self.assertEqual(r.status, 201)
@@ -206,23 +210,25 @@ class SecretTest(unittest.TestCase):
     def test_SESSION_SECRET이_비어_있으면_API는_시작하지_않는다(self):
         server = TestServer(secret="")
         # 값을 읽을 수 있는 .env가 없는 환경을 만든다.
-        server.env["TASKFLOW_ENV_FILE"] = str(server.db.parent / "no-such.env")
-        try:
-            with self.assertRaises(RuntimeError) as ctx:
-                server.start()
-            self.assertIn("SESSION_SECRET", str(ctx.exception))
-        finally:
-            server.stop()
+        with tempfile.TemporaryDirectory() as tmp:
+            server.env["TASKFLOW_ENV_FILE"] = str(Path(tmp) / "no-such.env")
+            try:
+                with self.assertRaises(RuntimeError) as ctx:
+                    server.start()
+                self.assertIn("SESSION_SECRET", str(ctx.exception))
+            finally:
+                server.stop()
 
     def test_env_파일에_값이_있으면_그_값으로_시작한다(self):
         server = TestServer(secret="")
-        env_file = server.db.parent / "test.env"
-        env_file.write_text("# 주석" + chr(10) + "SESSION_SECRET=from-env-file" + chr(10), encoding="utf-8")
-        server.env["TASKFLOW_ENV_FILE"] = str(env_file)
-        try:
-            server.start()
-        finally:
-            server.stop()
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / "test.env"
+            env_file.write_text("# 주석" + chr(10) + "SESSION_SECRET=from-env-file" + chr(10), encoding="utf-8")
+            server.env["TASKFLOW_ENV_FILE"] = str(env_file)
+            try:
+                server.start()
+            finally:
+                server.stop()
 
 
 if __name__ == "__main__":

@@ -12,10 +12,10 @@ router = APIRouter(
 )
 
 # 기한 초과는 저장하지 않고 읽을 때 계산한다. 마감일이 오늘보다 이전이고 완료가 아니다. (BR-03)
-# 자리표시자(?)가 하나 있어서 SELECT를 쓸 때 맨 앞에 "오늘"을 넘긴다.
+# 자리표시자(%s)가 하나 있어서 SELECT를 쓸 때 맨 앞에 "오늘"을 넘긴다.
 SELECT = (
     "SELECT id, title, description, status, priority, due_date, "
-    "(due_date IS NOT NULL AND due_date < ? AND status != 'DONE') AS is_overdue "
+    "(due_date IS NOT NULL AND due_date < %s AND status != 'DONE') AS is_overdue "
     "FROM tasks"
 )
 # 기한 초과 → 우선순위 HIGH부터 → 이른 마감일(없으면 맨 뒤) → 만든 순서. (BR-04)
@@ -39,7 +39,7 @@ def _not_found() -> HTTPException:
 
 def _get(conn, task_id: int, user_id: int):
     return conn.execute(
-        f"{SELECT} WHERE id = ? AND owner_id = ?", (_today(), task_id, user_id)
+        f"{SELECT} WHERE id = %s AND owner_id = %s", (_today(), task_id, user_id)
     ).fetchone()
 
 
@@ -47,7 +47,7 @@ def _get(conn, task_id: int, user_id: int):
 def list_tasks(user: User = Depends(current_user)) -> list[Task]:
     with connect() as conn:
         rows = conn.execute(
-            f"{SELECT} WHERE owner_id = ? {ORDER}", (_today(), user.id)
+            f"{SELECT} WHERE owner_id = %s {ORDER}", (_today(), user.id)
         ).fetchall()
     return [Task(**row) for row in rows]
 
@@ -58,7 +58,7 @@ def create_task(body: TaskCreate, user: User = Depends(current_user)) -> Task:
     with connect() as conn:
         cur = conn.execute(
             "INSERT INTO tasks (title, description, status, priority, due_date, owner_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
             (
                 body.title,
                 body.description,
@@ -68,7 +68,7 @@ def create_task(body: TaskCreate, user: User = Depends(current_user)) -> Task:
                 user.id,
             ),
         )
-        row = _get(conn, cur.lastrowid, user.id)
+        row = _get(conn, cur.fetchone()["id"], user.id)
     return Task(**row)
 
 
@@ -82,7 +82,7 @@ def create_tasks_bulk(
         ids = [
             conn.execute(
                 "INSERT INTO tasks (title, description, status, priority, due_date, owner_id) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
                 (
                     item.title,
                     item.description,
@@ -91,7 +91,7 @@ def create_tasks_bulk(
                     item.due_date,
                     user.id,
                 ),
-            ).lastrowid
+            ).fetchone()["id"]
             for item in body.items
         ]
         rows = [_get(conn, task_id, user.id) for task_id in ids]
@@ -106,7 +106,7 @@ def change_status(
 ) -> Task:
     with connect() as conn:
         cur = conn.execute(
-            "UPDATE tasks SET status = ? WHERE id = ? AND owner_id = ?",
+            "UPDATE tasks SET status = %s WHERE id = %s AND owner_id = %s",
             (body.status.value, task_id, user.id),
         )
         if cur.rowcount == 0:
@@ -130,9 +130,9 @@ def update_task(
     with connect() as conn:
         if values:
             # 열 이름은 위 고정 목록에서만 온다. 값은 자리표시자로 넘긴다.
-            assignments = ", ".join(f"{name} = ?" for name in values)
+            assignments = ", ".join(f"{name} = %s" for name in values)
             cur = conn.execute(
-                f"UPDATE tasks SET {assignments} WHERE id = ? AND owner_id = ?",
+                f"UPDATE tasks SET {assignments} WHERE id = %s AND owner_id = %s",
                 (*values.values(), task_id, user.id),
             )
             if cur.rowcount == 0:
@@ -147,7 +147,7 @@ def update_task(
 def delete_task(task_id: int, user: User = Depends(current_user)) -> None:
     with connect() as conn:
         cur = conn.execute(
-            "DELETE FROM tasks WHERE id = ? AND owner_id = ?", (task_id, user.id)
+            "DELETE FROM tasks WHERE id = %s AND owner_id = %s", (task_id, user.id)
         )
         if cur.rowcount == 0:
             raise _not_found()

@@ -119,7 +119,7 @@ class TaskProtectionTest(unittest.TestCase):
         bob_id = self.bob.get("/auth/me").json["id"]
         r = self.alice.post("/tasks", {"title": "가로채기", "description": "", "owner_id": bob_id})
         self.assertEqual(r.status, 201)
-        owner = self.server.sql("SELECT owner_id FROM tasks WHERE id = ?", (r.json["id"],))[0][0]
+        owner = self.server.sql("SELECT owner_id FROM tasks WHERE id = %s", (r.json["id"],))[0][0]
         alice_id = self.alice.get("/auth/me").json["id"]
         self.assertEqual(owner, alice_id)
         self.assertNotIn("가로채기", [t["title"] for t in self.bob.get("/tasks").json])
@@ -132,9 +132,9 @@ class TaskProtectionTest(unittest.TestCase):
 
     # ---- 이전용 계정과 기존 Task ----
     def test_이전한_기존_Task는_이전용_계정으로_가입한_사람에게만_보인다(self):
-        migrated_id = self.server.sql("SELECT id FROM users WHERE email = 'migrated@test.com'")[0][0]
+        migrated_id = self.server.seed_migrated_user()
         self.server.sql(
-            "INSERT INTO tasks (title, description, status, owner_id) VALUES ('옛 카드', '', 'DONE', ?)",
+            "INSERT INTO tasks (title, description, status, owner_id) VALUES ('옛 카드', '', 'DONE', %s)",
             (migrated_id,),
         )
         self.assertNotIn("옛 카드", [t["title"] for t in self.alice.get("/tasks").json])
