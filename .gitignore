@@ -5,3 +5,8 @@ backend/.venv/
 .env
 *.db
 __pycache__/
+.vercel
+.env.local
+# curl -c 로 저장하는 로그인 쿠키 파일 (로그인 상태를 증명하는 값이 들어 있다)
+ck.txt
+*cookie*.txt

@@ -1,8 +1,29 @@
+# 비밀값. .vercelignore가 있으면 Vercel은 .gitignore를 쓰지 않으므로 여기에 꼭 적는다.
 .env
+.env.*
 backend/.env
+backend/.env.*
+!backend/.env.example
 *.db
+*.pem
+*.key
+ck.txt
+*cookie*.txt
+
+# 내 컴퓨터의 도구 설정
+.claude
+.vercel
+.git
+
+# 가상환경, 빌드 산출물, 캐시 (화면은 Vercel에서 다시 빌드한다)
 .venv
 backend/.venv
 frontend/node_modules
 frontend/dist
 __pycache__
+
+# 배포에 필요 없는 것
+docs
+*.md
+backend/tests
+frontend/vite.alt.config.ts
